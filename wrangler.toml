@@ -1,0 +1,6 @@
+name = "bharat-ai-api"
+main = "worker/index.js"
+compatibility_date = "2026-11-23"
+
+[vars]
+GEMINI_MODEL = "gemini-2.0-flash"
