@@ -95,8 +95,10 @@ async function generateWithFallback(key, contents, maxOutputTokens = 1400) {
   }
 }
 
-function isInScope(message) {
+function isInScope(message, priorHistory = []) {
   const text = String(message || "").toLowerCase();
+  const outOfScope = /joke|jokes|story|stories|movie|song|music|dating|relationship|cricket score|football score|weather|shopping|recipe|game recommendation|मजाक|चुटकुला|कहानी|फिल्म|गाना|मौसम|खरीदना/;
+  if (outOfScope.test(text)) return false;
   const patterns = [
     / भर्ती|भर्तियां|भर्तियाँ|नौकरी|सरकारी नौकरी|वैकेंसी|vacanc|recruit|career|job alert|employment/,
     / परीक्षा|एग्जाम|exam|admit.?card|प्रवेश पत्र|result|रिजल्ट|परिणाम|syllabus|सिलेबस|पाठ्यक्रम|previous.?year|पिछले साल के प्रश्न|question paper|प्रश्न.?पत्र|entrance|competitive|प्रतियोगी/,
@@ -104,7 +106,13 @@ function isInScope(message) {
     / rbse|cbse|upsc|ssc|rrb|रेलवे|army|अग्निवीर|air force|वायुसेना|navy|नेवी|police|पुलिस|cet|neet|jee|cuet|board exam|बोर्ड परीक्षा|class ?(10|12)|10th|12th|बारहवीं|दसवीं/,
     /physics|भौतिकी|chemistry|रसायन|biology|जीव.?विज्ञान|maths?|गणित|algebra|geometry|इतिहास|history|geography|भूगोल|economics|अर्थशास्त्र|grammar|व्याकरण|chapter|अध्याय|notes|नोट्स|numerical|सूत्र|formula|theorem|प्रमेय|परिभाषा|definition|concept|अवधारणा|homework|assignment|पाठ|प्रश्न.?उत्तर|समझाओ|explain/
   ];
-  return patterns.some(pattern => pattern.test(text));
+  if (patterns.some(pattern => pattern.test(text))) return true;
+  const previousTopic = Array.isArray(priorHistory) && priorHistory
+    .filter(item => item?.role === "user" && Array.isArray(item?.parts))
+    .slice(-2)
+    .some(item => patterns.some(pattern => pattern.test(item.parts.map(part => String(part?.text || "")).join(" "))));
+  const shortFollowUp = /^(aur|iska|iske|ye|uska|kab|kahan|kaise|kitna|kitni|haan|nahi|samjhao|detail|details|link|fees|age|documents|aage|next|ok|thik|ठीक|और|इसका|इसके|ये|वो|कब|कहाँ|कैसे|कितना|कितनी|हाँ|नहीं|समझाओ|विस्तार|लिंक|फीस|उम्र|दस्तावेज़|आगे|बताओ)(\\b|\\s|$)/i.test(text);
+  return previousTopic && shortFollowUp;
 }
 
 function extractReply(payload) {
@@ -192,7 +200,7 @@ export default {
     catch { return json({ error: "संदेश का डेटा सही नहीं है। दोबारा भेजें।" }, 400); }
 
     const message = typeof body.message === "string" ? body.message.trim().slice(0, 4000) : "";
-    if (message && !isInScope(message)) {
+    if (message && !isInScope(message, body.history)) {
       return json({ reply: "मैं यह काम नहीं कर सकता। BHARAT AI केवल पढ़ाई, परीक्षा, भर्ती, दाखिले, छात्रवृत्ति, सरकारी सेवाओं और फॉर्म से जुड़े कामों में मदद करता है।" });
     }
     if (!message) return json({ error: "पहले अपना सवाल लिखें।" }, 400);
