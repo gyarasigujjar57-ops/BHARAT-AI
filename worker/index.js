@@ -8,61 +8,40 @@ const json = (value, status = 200) => new Response(JSON.stringify(value), {
   headers: { "Content-Type": "application/json; charset=utf-8", ...cors, "Cache-Control": "no-store" }
 });
 
-const PRIMARY_MODEL = "gemini-2.5-flash";
-const FALLBACK_MODEL = "gemini-2.5-flash-lite";
-const SYSTEM = `You are BHARAT AI, India's focused Study, Exam, Recruitment and Government-Form Action Assistant. You are NOT a general-purpose chatbot or entertainment companion.
-SCOPE: Help only with practical education and career administration (school/college/entrance/competitive exams, syllabus, exam notices, admit cards, results, previous papers and exam-related doubts), government/private recruitment information, eligibility, admissions, scholarships, government schemes/services, certificates, required documents, application forms, and step-by-step official application workflows. Do not provide general life coaching, generic "how should I study" motivation/planning, casual conversation, jokes, stories, entertainment, coding, shopping, relationship advice, or unrelated general knowledge. For out-of-scope requests, politely reply: "मैं यह काम नहीं कर सकता। BHARAT AI केवल पढ़ाई, परीक्षा, भर्ती, दाखिले, छात्रवृत्ति, सरकारी सेवाओं और फॉर्म से जुड़े कामों में मदद करता है।"
+const PRIMARY_MODEL = "gemini-3.8-flash";
+const FALLBACK_MODEL = "gemini-3.5-flash-lite";
+const SYSTEM = "You are BHARAT AI, India's focused Study, Exam, Recruitment and Government-Form Action Assistant. You are NOT a general-purpose chatbot or entertainment companion.\nSCOPE: Help only with practical education and career administration (school/college/entrance/competitive exams, syllabus, exam notices, admit cards, results, previous papers and exam-related doubts), government/private recruitment information, eligibility, admissions, scholarships, government schemes/services, certificates, required documents, application forms, and step-by-step official application workflows. Do not provide general life coaching, generic \"how should I study\" motivation/planning, casual conversation, jokes, stories, entertainment, coding, shopping, relationship advice, or unrelated general knowledge. For out-of-scope requests, politely reply: \"मैं यह काम नहीं कर सकता। BHARAT AI केवल पढ़ाई, परीक्षा, भर्ती, दाखिले, छात्रवृत्ति, सरकारी सेवाओं और फॉर्म से जुड़े कामों में मदद करता है।\"\n\nLANGUAGE AND VOICE:\nReply in the same language and script the user uses. If they write Hinglish, use natural easy Hinglish; if Hindi, use clean everyday Hindi. Sound warm, alert, confident and human—not robotic, salesy, overexcited or fake-friendly. Understand what the person actually means before answering.\nWRITING STYLE:\nWrite clean, readable paragraphs. Start with the direct answer. Use bullets or numbered steps only when they make information easier to scan. Do not decorate ordinary replies with markdown headings, repeated **bold**, ###, star symbols, emojis, or excessive lists. No \"wow\", \"amazing\", \"great question\" filler. Avoid repeating the question. Explain unfamiliar terms in simple words. Keep simple answers short; give detail when the question needs it.\nACCURACY:\nNever make up facts, dates, recruitment notices, eligibility, fees, salaries, deadlines, links, or current status. Clearly distinguish confirmed facts from estimates and unknowns. If information may have changed, verify it using Google Search grounding before stating it. Prefer official government/department/recruitment-board sources. Give the exact notification date and application deadline when confirmed. If sources disagree, explain the difference. If search does not establish the answer, say you could not verify it—do not present old information as today's update.\nINDIAN RECRUITMENT:\nFor questions about latest/current/new government jobs or recruitments, actively search the web using Google Search grounding. Check current official notices, not memory alone. Match the user's state, age, education and category only when those details are known; ask one essential missing question rather than guessing. For each confirmed vacancy, explain post, department, qualification, age limit and relaxations, important dates, fee, selection process, salary/pay level, and official application/notification link. State \"as of\" today's date when possible. Clearly label closed, upcoming, and open applications.\nSAFETY AND TRUST:\nNever request Aadhaar/PAN numbers, OTPs, passwords, or bank credentials. The user must personally handle OTP, CAPTCHA, biometrics, payments, declarations and final submission. Never claim to have submitted a form or performed an action unless actually done.\nIDENTITY:\nYou are BHARAT AI. Do not claim a feature, live access, source, or action that was not actually used.";
 
-LANGUAGE AND VOICE:
-Reply in the same language and script the user uses. If they write Hinglish, use natural easy Hinglish; if Hindi, use clean everyday Hindi. Sound warm, alert, confident and human—not robotic, salesy, overexcited or fake-friendly. Understand what the person actually means before answering.
-WRITING STYLE:
-Write clean, readable paragraphs. Start with the direct answer. Use bullets or numbered steps only when they make information easier to scan. Do not decorate ordinary replies with markdown headings, repeated **bold**, ###, star symbols, emojis, or excessive lists. No "wow", "amazing", "great question" filler. Avoid repeating the question. Explain unfamiliar terms in simple words. Keep simple answers short; give detail when the question needs it.
-ACCURACY:
-Never make up facts, dates, recruitment notices, eligibility, fees, salaries, deadlines, links, or current status. Clearly distinguish confirmed facts from estimates and unknowns. If information may have changed, verify it using Google Search grounding before stating it. Prefer official government/department/recruitment-board sources. Give the exact notification date and application deadline when confirmed. If sources disagree, explain the difference. If search does not establish the answer, say you could not verify it—do not present old information as today's update.
-INDIAN RECRUITMENT:
-For questions about latest/current/new government jobs or recruitments, actively search the web using Google Search grounding. Check current official notices, not memory alone. Match the user's state, age, education and category only when those details are known; ask one essential missing question rather than guessing. For each confirmed vacancy, explain post, department, qualification, age limit and relaxations, important dates, fee, selection process, salary/pay level, and official application/notification link. State "as of" today's date when possible. Clearly label closed, upcoming, and open applications.
-SAFETY AND TRUST:
-Never request Aadhaar/PAN numbers, OTPs, passwords, or bank credentials. The user must personally handle OTP, CAPTCHA, biometrics, payments, declarations and final submission. Never claim to have submitted a form or performed an action unless actually done.
-IDENTITY:
-You are BHARAT AI. Do not claim a feature, live access, source, or action that was not actually used.`;
+function conversationInput(history) {
+  return history.map(item => {
+    const who = item.role === "model" ? "BHARAT AI" : "User";
+    const text = (item.parts || []).map(p => p.text || "").join("\n");
+    return who + ": " + text;
+  }).join("\n\n");
+}
 
-async function callGemini(model, key, contents, maxOutputTokens = 1400) {
+async function callGeminiStream(model, key, history) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 25000);
+  const timer = setTimeout(() => controller.abort(), 90000);
   try {
-    return await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + encodeURIComponent(key), {
+    const input = conversationInput(history) +
+      "\n\nIMPORTANT: For current, latest, new, open, or time-sensitive facts, you MUST use the Google Search tool in this request before answering. Prefer official Indian government and recruitment-board websites. Report the date checked. If search results do not confirm the answer, say so clearly.";
+    return await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM }] },
-        contents,
-        tools: [{ google_search: {} }],
-        generationConfig: { maxOutputTokens, temperature: 0.55 }
+        model,
+        input,
+        system_instruction: SYSTEM,
+        tools: [{ type: "google_search" }],
+        stream: true,
+        store: false
       }),
       signal: controller.signal
     });
   } finally {
     clearTimeout(timer);
   }
-}
-
-
-async function callGeminiStream(model, key, contents) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 75000);
-  try {
-    return await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":streamGenerateContent?alt=sse&key=" + encodeURIComponent(key), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM + "\n\nCurrent India date and time: " + new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "full", timeStyle: "long" }) + ". For requests about what is happening now, verify using Google Search grounding and state the checked date." }] },
-        contents,
-        tools: [{ google_search: {} }],
-        generationConfig: { maxOutputTokens: 1800, temperature: 0.45 }
-      }),
-      signal: controller.signal
-    });
-  } finally { clearTimeout(timer); }
 }
 
 function streamPacket(data) {
@@ -84,25 +63,40 @@ function makeLiveStream(upstream) {
           const events = buffer.split("\n\n");
           buffer = events.pop() || "";
           for (const event of events) {
-            const line = event.split("\n").find(x => x.startsWith("data:"));
-            if (!line) continue;
+            const dataLine = event.split("\n").find(x => x.startsWith("data:"));
+            if (!dataLine) continue;
+            const raw = dataLine.slice(5).trim();
+            if (raw === "[DONE]") continue;
             try {
-              const item = JSON.parse(line.slice(5).trim());
-              const text = item?.candidates?.[0]?.content?.parts?.map(p => typeof p.text === "string" ? p.text : "").join("") || "";
-              if (text) controller.enqueue(encoder.encode(streamPacket({ text })));
-              const reason = item?.candidates?.[0]?.finishReason;
-              if (reason && reason !== "STOP" && reason !== "MAX_TOKENS") controller.enqueue(encoder.encode(streamPacket({ notice: reason })));
+              const item = JSON.parse(raw);
+              if (item.event_type === "error" || item.error) {
+                controller.enqueue(encoder.encode(streamPacket({ error: item.error?.message || "Google Search / Gemini से जवाब नहीं मिला।" })));
+                continue;
+              }
+              if (item.event_type === "step.delta" && item.delta?.type === "text" && item.delta.text) {
+                controller.enqueue(encoder.encode(streamPacket({ text: item.delta.text })));
+              }
             } catch (_) {}
           }
         }
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
-      } catch (error) {
-        controller.enqueue(encoder.encode(streamPacket({ error: "Live जवाब बीच में रुक गया। दोबारा कोशिश करें।" })));
+      } catch (_) {
+        controller.enqueue(encoder.encode(streamPacket({ error: "Live जवाब बीच में रुक गया। कृपया दोबारा प्रयास करें।" })));
         controller.close();
-      } finally { reader.releaseLock(); }
+      } finally {
+        reader.releaseLock();
+      }
     }
-  }), { headers: { ...cors, "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", "Connection": "keep-alive", "X-Accel-Buffering": "no" } });
+  }), {
+    headers: {
+      ...cors,
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no"
+    }
+  });
 }
 
 async function readGeminiError(response) {
