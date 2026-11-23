@@ -1,4 +1,4 @@
-const API_BASE_URL="https://bharat-ai-api.gyarasigujjar.workers.dev";
+const API_BASE_URL="https://bharat-ai-api.gyarasigujjar57.workers.dev";
 const chat=document.querySelector("#chat"),form=document.querySelector("#form"),input=document.querySelector("#message"),send=document.querySelector("#send");
 function addMessage(text,role){const wrap=document.createElement("div");wrap.className="message "+role;const bubble=document.createElement("div");bubble.className="bubble";bubble.textContent=text;wrap.append(bubble);chat.append(wrap);chat.scrollTop=chat.scrollHeight;return bubble}
 function hideWelcome(){const w=document.querySelector("#welcome");if(w)w.remove()}
