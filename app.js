@@ -4,6 +4,9 @@ const form = document.querySelector("#form");
 const input = document.querySelector("#message");
 const send = document.querySelector("#send");
 const connection = document.querySelector("#connection");
+const snakeScene = document.querySelector("#snake-scene");
+function showSnakeScene() { snakeScene?.classList.add("active"); snakeScene?.setAttribute("aria-hidden", "false"); }
+function hideSnakeScene() { snakeScene?.classList.remove("active"); snakeScene?.setAttribute("aria-hidden", "true"); }
 
 function addMessage(text, role) {
   const wrap = document.createElement("div");
@@ -81,6 +84,7 @@ function renderMarkdown(element, markdown) {
 // Read the real token stream from the backend; no simulated typing.
 async function readLiveReply(response, element) {
   if (!response.body?.getReader) {
+    hideSnakeScene();
     const data = await response.json();
     return data.reply || "";
   }
@@ -100,6 +104,7 @@ async function readLiveReply(response, element) {
       try { packet = JSON.parse(line.slice(5).trim()); } catch (_) { continue; }
       if (packet.error) throw new Error(packet.error);
       if (packet.text) {
+        hideSnakeScene();
         fullText += packet.text;
         renderMarkdown(element, fullText);
       }
@@ -134,6 +139,7 @@ async function checkAIConnection() {
 
 async function ask(question) {
   hideWelcome();
+  showSnakeScene();
   const history = getHistory();
   addMessage(question, "user");
   const reply = addMessage("", "bot");
@@ -164,6 +170,7 @@ async function ask(question) {
     const liveText = await readLiveReply(response, reply);
     if (!liveText.trim()) throw new Error("AI से खाली जवाब मिला।");
   } catch (error) {
+    hideSnakeScene();
     reply.dataset.failed = "true";
     reply.classList.remove("thinking");
     reply.removeAttribute("aria-label");
@@ -175,6 +182,7 @@ async function ask(question) {
         : "AI जवाब नहीं दे पाया: " + error.message;
     checkAIConnection();
   } finally {
+    hideSnakeScene();
     clearTimeout(timeout);
     send.disabled = false;
     input.disabled = false;
