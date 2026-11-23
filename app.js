@@ -118,7 +118,10 @@ async function ask(question) {
   hideWelcome();
   const history = getHistory();
   addMessage(question, "user");
-  const reply = addMessage("BHARAT AI सोच रहा है…", "bot");
+  const reply = addMessage("", "bot");
+  reply.classList.add("thinking");
+  reply.setAttribute("aria-label", "BHARAT AI जवाब तैयार कर रहा है");
+  reply.innerHTML = '<span class="thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span>';
   reply.dataset.pending = "true";
   send.disabled = true;
   input.disabled = true;
@@ -137,9 +140,13 @@ async function ask(question) {
     if (!response.ok) throw new Error(data.error || data.message || ("सर्वर त्रुटि " + response.status));
     if (typeof data.reply !== "string" || !data.reply.trim()) throw new Error("AI से खाली जवाब मिला।");
     delete reply.dataset.pending;
+    reply.classList.remove("thinking");
+    reply.removeAttribute("aria-label");
     await revealReply(reply, data.reply.trim());
   } catch (error) {
     reply.dataset.failed = "true";
+    reply.classList.remove("thinking");
+    reply.removeAttribute("aria-label");
     delete reply.dataset.pending;
     reply.textContent = error.name === "AbortError"
       ? "जवाब आने में बहुत समय लगा। इंटरनेट जाँचकर दोबारा भेजें।"
