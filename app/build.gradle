@@ -1,0 +1,21 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'in.bharatai.app'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'in.bharatai.app'
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0'
+    }
+}
+
+def webFiles = ['index.html', 'styles.css', 'app.js', 'manifest.webmanifest', 'sw.js']
+tasks.register('copyWebAssets', Copy) {
+    from(rootProject.projectDir) { include webFiles }
+    into layout.buildDirectory.dir('generated/bharatAssets/www')
+}
+android.sourceSets.main.assets.srcDir(layout.buildDirectory.dir('generated/bharatAssets'))
+tasks.named('preBuild').configure { dependsOn 'copyWebAssets' }
