@@ -117,7 +117,11 @@ async function generateCloudflareFallback(env, history) {
     });
     const answer = typeof result === "string"
       ? result
-      : (result?.response || result?.output || result?.text || "");
+      : (result?.response ||
+         result?.choices?.[0]?.message?.content ||
+         result?.output ||
+         result?.text ||
+         "");
     return typeof answer === "string" ? answer.trim() : "";
   } catch (_) {
     return "";
