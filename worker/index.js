@@ -46,6 +46,65 @@ async function callGemini(model, key, contents, maxOutputTokens = 1400) {
   }
 }
 
+
+async function callGeminiStream(model, key, contents) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 75000);
+  try {
+    return await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":streamGenerateContent?alt=sse&key=" + encodeURIComponent(key), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM + "\\n\\nCurrent India date and time: " + new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "full", timeStyle: "long" }) + ". For requests about what is happening now, verify using Google Search grounding and state the checked date." }] },
+        contents,
+        tools: [{ google_search: {} }],
+        generationConfig: { maxOutputTokens: 1800, temperature: 0.45 }
+      }),
+      signal: controller.signal
+    });
+  } finally { clearTimeout(timer); }
+}
+
+function streamPacket(data) {
+  return "data: " + JSON.stringify(data) + "\\n\\n";
+}
+
+function makeLiveStream(upstream) {
+  const encoder = new TextEncoder();
+  return new Response(new ReadableStream({
+    async start(controller) {
+      const reader = upstream.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const events = buffer.split("\\n\\n");
+          buffer = events.pop() || "";
+          for (const event of events) {
+            const line = event.split("\\n").find(x => x.startsWith("data:"));
+            if (!line) continue;
+            try {
+              const item = JSON.parse(line.slice(5).trim());
+              const text = item?.candidates?.[0]?.content?.parts?.map(p => typeof p.text === "string" ? p.text : "").join("") || "";
+              if (text) controller.enqueue(encoder.encode(streamPacket({ text })));
+              const reason = item?.candidates?.[0]?.finishReason;
+              if (reason && reason !== "STOP" && reason !== "MAX_TOKENS") controller.enqueue(encoder.encode(streamPacket({ notice: reason })));
+            } catch (_) {}
+          }
+        }
+        controller.enqueue(encoder.encode("data: [DONE]\\n\\n"));
+        controller.close();
+      } catch (error) {
+        controller.enqueue(encoder.encode(streamPacket({ error: "Live जवाब बीच में रुक गया। दोबारा कोशिश करें।" })));
+        controller.close();
+      } finally { reader.releaseLock(); }
+    }
+  }), { headers: { ...cors, "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", "Connection": "keep-alive", "X-Accel-Buffering": "no" } });
+}
+
 async function readGeminiError(response) {
   try {
     const payload = await response.json();
@@ -192,7 +251,7 @@ export default {
       return json({ ok: true, aiKeyConfigured: true, aiReady: true, model: activeModel, testReply: reply });
     }
 
-    if (url.pathname !== "/api/chat" || request.method !== "POST") {
+    if (!["/api/chat", "/api/chat/stream"].includes(url.pathname) || request.method !== "POST") {
       return json({ error: "यह API रास्ता उपलब्ध नहीं है।" }, 404);
     }
 
@@ -221,6 +280,28 @@ export default {
     while (history.length && history[0].role !== "user") history.shift();
     if (history.length && history[history.length - 1].role !== "model") history.pop();
     history.push({ role: "user", parts: [{ text: message }] });
+
+    if (url.pathname === "/api/chat/stream") {
+      let live = await callGeminiStream(PRIMARY_MODEL, env.GEMINI_API_KEY, history);
+      if (!live.ok) {
+        const status = live.status;
+        await readGeminiError(live);
+        if ([400, 404, 429].includes(status) || status >= 500) {
+          live = await callGeminiStream(FALLBACK_MODEL, env.GEMINI_API_KEY, history);
+        }
+      }
+      if (live.ok && live.body) return makeLiveStream(live);
+      const backup = await generateCloudflareFallback(env, history);
+      if (backup) {
+        const encoder = new TextEncoder();
+        return new Response(new ReadableStream({ start(controller) {
+          controller.enqueue(encoder.encode(streamPacket({ text: backup })));
+          controller.enqueue(encoder.encode("data: [DONE]\\n\\n"));
+          controller.close();
+        }}), { headers: { ...cors, "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform" } });
+      }
+      return json({ error: "Live AI stream उपलब्ध नहीं है। कृपया थोड़ी देर बाद प्रयास करें।" }, 502);
+    }
 
     const result = await generateWithFallback(env.GEMINI_API_KEY, history);
     let reply = "";
