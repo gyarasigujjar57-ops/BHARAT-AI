@@ -154,6 +154,10 @@ async function generateWithFallback(key, contents, maxOutputTokens = 1400) {
   }
 }
 
+function needsFreshWebInfo(message) {
+  return /\\b(latest|today|current|currently|now|new|recent|updated|open|active|last date|deadline|result|released|notification|vacancy|vacancies|bharti|bhartiya|sarkari naukri|abhi|aaj|filhaal|vartaman|nayi|naya|nikli|nikli hai|khuli|chalu|antim tithi|aakhri tarikh|kab tak|रोजगार|भर्ती|भर्तियां|भर्तियाँ|आज|अभी|वर्तमान|नई भर्ती|नया नोटिफिकेशन|अंतिम तिथि|आखिरी तारीख|खुली हुई|जारी हुआ|निकली है|रिजल्ट|नतीजा)\\b/i.test(String(message || ""));
+}
+
 function isInScope(message, priorHistory = []) {
   const text = String(message || "").toLowerCase().trim();
   // Reject obvious unrelated entertainment, but accept common Hinglish spellings.
@@ -291,6 +295,11 @@ export default {
         }
       }
       if (live.ok && live.body) return makeLiveStream(live);
+      // Never answer time-sensitive questions from the offline Gemma backup.
+      // It has no live web search and could present stale recruitment information.
+      if (needsFreshWebInfo(message)) {
+        return json({ error: "ताज़ा जानकारी के लिए लाइव सर्च अभी उपलब्ध नहीं हो पाई। पुरानी जानकारी देने के बजाय मैं रुक रहा हूँ। थोड़ी देर बाद फिर कोशिश करें।" }, 503);
+      }
       const backup = await generateCloudflareFallback(env, history);
       if (backup) {
         const encoder = new TextEncoder();
