@@ -100,6 +100,30 @@ function extractReply(payload) {
     .trim() || "";
 }
 
+async function generateCloudflareFallback(env, history) {
+  if (!env.AI?.run) return "";
+  try {
+    const messages = [
+      { role: "system", content: SYSTEM + "\\n\\nIMPORTANT: This is the backup model. You do not have live web search in this request. Never claim that you checked today's news, vacancies, dates, or official websites. For current facts, clearly say they could not be verified in this reply." },
+      ...history.map(item => ({
+        role: item.role === "model" ? "assistant" : "user",
+        content: item.parts.map(part => part.text).join("\\n")
+      }))
+    ];
+    const result = await env.AI.run("@cf/google/gemma-4-26b-a4b-it", {
+      messages,
+      max_tokens: 1200,
+      temperature: 0.55
+    });
+    const answer = typeof result === "string"
+      ? result
+      : (result?.response || result?.output || result?.text || "");
+    return typeof answer === "string" ? answer.trim() : "";
+  } catch (_) {
+    return "";
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -118,31 +142,27 @@ export default {
       const check = await generateWithFallback(env.GEMINI_API_KEY, [
         { role: "user", parts: [{ text: "Reply with exactly: BHARAT AI READY" }] }
       ], 20);
-      if (!check.response) {
+      let reply = "";
+      let activeModel = check.model;
+      if (check.response?.ok) {
+        try { reply = extractReply(await check.response.json()); } catch (_) {}
+      }
+      if (!reply) {
+        reply = await generateCloudflareFallback(env, [
+          { role: "user", parts: [{ text: "Reply with exactly: BHARAT AI READY" }] }
+        ]);
+        activeModel = reply ? "Cloudflare Workers AI (Gemma 4 backup)" : check.model;
+      }
+      if (!reply) {
+        const detail = check.response ? (check.error || await readGeminiError(check.response)) : check.error;
         return json({
           ok: false, aiKeyConfigured: true, aiReady: false,
-          error: check.error === "timeout"
-            ? "Gemini ने जाँच का जवाब समय पर नहीं दिया।"
-            : "Cloudflare से Gemini तक कनेक्शन नहीं हो पाया।"
+          error: detail && /429|quota|limit/i.test(detail)
+            ? "Gemini की सीमा पूरी है और backup AI भी उपलब्ध नहीं है।"
+            : "Gemini और backup AI में से कोई जवाब नहीं दे पाया।"
         }, 502);
       }
-      if (!check.response.ok) {
-        const detail = check.error || await readGeminiError(check.response);
-        return json({
-          ok: false, aiKeyConfigured: true, aiReady: false,
-          error: check.response.status === 401 || check.response.status === 403
-            ? "Gemini API key अमान्य है या API की अनुमति नहीं है।"
-            : check.response.status === 429
-              ? "Gemini की उपयोग सीमा अभी पूरी है।"
-              : "Gemini ने जाँच अस्वीकार की: " + (detail || ("HTTP " + check.response.status)).slice(0, 180)
-        }, 502);
-      }
-      let payload;
-      try { payload = await check.response.json(); }
-      catch (_) { return json({ ok: false, aiReady: false, error: "Gemini का टेस्ट जवाब पढ़ा नहीं जा सका।" }, 502); }
-      const reply = extractReply(payload);
-      if (!reply) return json({ ok: false, aiReady: false, error: "Gemini ने टेस्ट में खाली जवाब भेजा।" }, 502);
-      return json({ ok: true, aiKeyConfigured: true, aiReady: true, model: check.model, testReply: reply });
+      return json({ ok: true, aiKeyConfigured: true, aiReady: true, model: activeModel, testReply: reply });
     }
 
     if (url.pathname !== "/api/chat" || request.method !== "POST") {
@@ -173,42 +193,33 @@ export default {
     history.push({ role: "user", parts: [{ text: message }] });
 
     const result = await generateWithFallback(env.GEMINI_API_KEY, history);
-    if (!result.response) {
-      return json({
-        error: result.error === "timeout"
-          ? "Gemini ने जवाब देने में बहुत समय लिया। दोबारा कोशिश करें।"
-          : "Cloudflare से Gemini तक कनेक्शन नहीं हो पाया।"
-      }, 502);
+    let reply = "";
+    let activeModel = result.model;
+    if (result.response?.ok) {
+      try { reply = extractReply(await result.response.json()); } catch (_) {}
     }
 
-    if (!result.response.ok) {
-      const detail = result.error || await readGeminiError(result.response);
-      if (result.response.status === 401 || result.response.status === 403) {
-        return json({ error: "Gemini API key अमान्य है या इस API की अनुमति नहीं है। Cloudflare Secret जाँचें।" }, 502);
-      }
-      if (result.response.status === 429) {
-        return json({ error: "Gemini की उपयोग सीमा अभी पूरी हो गई है। कुछ देर बाद फिर कोशिश करें।" }, 429);
-      }
-      return json({
-        error: "Gemini API ने जवाब नहीं दिया।" + (detail ? " विवरण: " + detail.slice(0, 220) : ""),
-        upstreamStatus: result.response.status
-      }, 502);
-    }
-
-    let payload;
-    try { payload = await result.response.json(); }
-    catch (_) { return json({ error: "Gemini से सही जवाब नहीं पढ़ा जा सका।" }, 502); }
-
-    const reply = extractReply(payload);
     if (!reply) {
-      const reason = payload?.promptFeedback?.blockReason;
+      reply = await generateCloudflareFallback(env, history);
+      if (reply) activeModel = "Cloudflare Workers AI (Gemma 4 backup)";
+    }
+
+    if (!reply) {
+      const detail = result.response
+        ? (result.error || await readGeminiError(result.response))
+        : result.error;
+      if (result.response?.status === 401 || result.response?.status === 403) {
+        return json({ error: "Gemini key की अनुमति में समस्या है और backup AI भी जवाब नहीं दे पाया।" }, 502);
+      }
+      if (result.response?.status === 429) {
+        return json({ error: "Gemini की सीमा पूरी है और backup AI भी अभी उपलब्ध नहीं है। थोड़ी देर बाद फिर कोशिश करें।" }, 429);
+      }
       return json({
-        error: reason
-          ? "यह सवाल सुरक्षा नियमों के कारण पूरा नहीं हो सका।"
-          : "Gemini ने खाली जवाब भेजा। दोबारा कोशिश करें।"
+        error: "मुख्य AI और backup AI दोनों से जवाब नहीं मिला।" + (detail ? " विवरण: " + detail.slice(0, 180) : ""),
+        upstreamStatus: result.response?.status || 502
       }, 502);
     }
 
-    return json({ reply, model: result.model });
+    return json({ reply, model: activeModel });
   }
 };
