@@ -3,6 +3,7 @@ const chat = document.querySelector("#chat");
 const form = document.querySelector("#form");
 const input = document.querySelector("#message");
 const send = document.querySelector("#send");
+const connection = document.querySelector("#connection");
 
 function addMessage(text, role) {
   const wrap = document.createElement("div");
@@ -34,6 +35,34 @@ function getHistory() {
     .slice(-12);
 }
 
+async function checkAIConnection() {
+  if (!connection) return;
+  connection.textContent = "AI जाँच रहा है…";
+  connection.classList.remove("ready", "failed");
+  connection.disabled = true;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 35000);
+  try {
+    const response = await fetch(API_BASE_URL + "/health?test=1", {
+      method: "GET",
+      cache: "no-store",
+      signal: controller.signal
+    });
+    const data = await response.json();
+    if (!response.ok || data.aiReady !== true) throw new Error(data.error || "AI कनेक्शन नहीं बना।");
+    connection.textContent = "AI तैयार है · " + data.model;
+    connection.classList.add("ready");
+    connection.title = "Gemini से असली टेस्ट जवाब मिला।";
+  } catch (error) {
+    connection.textContent = "AI कनेक्शन में समस्या · फिर जाँचें";
+    connection.classList.add("failed");
+    connection.title = error.name === "AbortError" ? "AI जाँच में समय लग गया।" : error.message;
+  } finally {
+    clearTimeout(timer);
+    connection.disabled = false;
+  }
+}
+
 async function ask(question) {
   hideWelcome();
   const history = getHistory();
@@ -45,7 +74,6 @@ async function ask(question) {
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 40000);
-
   try {
     const response = await fetch(API_BASE_URL + "/api/chat", {
       method: "POST",
@@ -53,18 +81,10 @@ async function ask(question) {
       body: JSON.stringify({ message: question, history, language: "hi" }),
       signal: controller.signal
     });
-
     let data = {};
     try { data = await response.json(); } catch (_) {}
-
-    if (!response.ok) {
-      const reason = data.error || data.message || ("सर्वर त्रुटि " + response.status);
-      throw new Error(reason);
-    }
-    if (typeof data.reply !== "string" || !data.reply.trim()) {
-      throw new Error("AI से खाली जवाब मिला।");
-    }
-
+    if (!response.ok) throw new Error(data.error || data.message || ("सर्वर त्रुटि " + response.status));
+    if (typeof data.reply !== "string" || !data.reply.trim()) throw new Error("AI से खाली जवाब मिला।");
     reply.textContent = data.reply.trim();
     delete reply.dataset.pending;
   } catch (error) {
@@ -73,10 +93,11 @@ async function ask(question) {
     if (error.name === "AbortError") {
       reply.textContent = "जवाब आने में बहुत समय लगा। इंटरनेट जाँचकर दोबारा भेजें।";
     } else if (error.message === "Failed to fetch" || error instanceof TypeError) {
-      reply.textContent = "सर्वर से कनेक्शन नहीं हुआ। इंटरनेट या सर्वर कनेक्शन जाँचें।";
+      reply.textContent = "सर्वर से कनेक्शन नहीं हुआ। ऊपर AI कनेक्शन पर टैप करके जाँचें।";
     } else {
       reply.textContent = "AI जवाब नहीं दे पाया: " + error.message;
     }
+    checkAIConnection();
   } finally {
     clearTimeout(timeout);
     send.disabled = false;
@@ -122,3 +143,6 @@ input.addEventListener("keydown", event => {
     form.requestSubmit();
   }
 });
+
+connection?.addEventListener("click", checkAIConnection);
+checkAIConnection();
