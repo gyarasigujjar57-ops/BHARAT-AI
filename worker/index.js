@@ -55,7 +55,7 @@ async function callGeminiStream(model, key, contents) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM + "\\n\\nCurrent India date and time: " + new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "full", timeStyle: "long" }) + ". For requests about what is happening now, verify using Google Search grounding and state the checked date." }] },
+        systemInstruction: { parts: [{ text: SYSTEM + "\n\nCurrent India date and time: " + new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "full", timeStyle: "long" }) + ". For requests about what is happening now, verify using Google Search grounding and state the checked date." }] },
         contents,
         tools: [{ google_search: {} }],
         generationConfig: { maxOutputTokens: 1800, temperature: 0.45 }
@@ -66,7 +66,7 @@ async function callGeminiStream(model, key, contents) {
 }
 
 function streamPacket(data) {
-  return "data: " + JSON.stringify(data) + "\\n\\n";
+  return "data: " + JSON.stringify(data) + "\n\n";
 }
 
 function makeLiveStream(upstream) {
@@ -81,10 +81,10 @@ function makeLiveStream(upstream) {
           const { value, done } = await reader.read();
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
-          const events = buffer.split("\\n\\n");
+          const events = buffer.split("\n\n");
           buffer = events.pop() || "";
           for (const event of events) {
-            const line = event.split("\\n").find(x => x.startsWith("data:"));
+            const line = event.split("\n").find(x => x.startsWith("data:"));
             if (!line) continue;
             try {
               const item = JSON.parse(line.slice(5).trim());
@@ -95,7 +95,7 @@ function makeLiveStream(upstream) {
             } catch (_) {}
           }
         }
-        controller.enqueue(encoder.encode("data: [DONE]\\n\\n"));
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
       } catch (error) {
         controller.enqueue(encoder.encode(streamPacket({ error: "Live जवाब बीच में रुक गया। दोबारा कोशिश करें।" })));
