@@ -28,3 +28,14 @@
 @keyframes snakeCrawl{0%,100%{transform:translate(0,3px) scale(.78);opacity:.5}25%{transform:translate(7px,-2px) scale(1);opacity:1}50%{transform:translate(16px,3px) scale(.9);opacity:.9}75%{transform:translate(25px,-2px) scale(.8);opacity:.65}}
 @keyframes snakeHead{0%,100%{transform:translate(0,2px) rotate(-8deg)}25%{transform:translate(8px,-3px) rotate(12deg)}50%{transform:translate(17px,2px) rotate(-8deg)}75%{transform:translate(26px,-3px) rotate(10deg)}}
 @media(prefers-reduced-motion:reduce){.snake-loader i,.snake-loader b{animation:none;opacity:.9}}
+
+/* Full-screen cinematic snake scene shown only while BHARAT AI prepares its first live token */
+.snake-scene{position:fixed;inset:0;z-index:9999;display:none;overflow:hidden;background:#050810;isolation:isolate}
+.snake-scene.active{display:block;animation:sceneIn .22s ease-out both}
+.snake-scene img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 46%;display:block;filter:saturate(1.16) contrast(1.08) brightness(.94);animation:snakeCamera 5s ease-in-out infinite alternate;will-change:transform}
+.snake-scene:before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at 50% 42%,transparent 34%,rgba(0,0,0,.18) 72%,rgba(0,0,0,.72) 100%),linear-gradient(180deg,rgba(3,6,14,.12),transparent 30%,transparent 72%,rgba(2,4,10,.4));}
+.snake-scene:after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:rgba(170,205,255,0);animation:snakeLightning 4.6s steps(1,end) infinite}
+@keyframes sceneIn{from{opacity:0}to{opacity:1}}
+@keyframes snakeCamera{0%{transform:scale(1.015) translate3d(0,0,0)}100%{transform:scale(1.075) translate3d(0,-.6%,0)}}
+@keyframes snakeLightning{0%,92%,100%{background:rgba(160,196,255,0)}93%{background:rgba(160,196,255,.15)}94%{background:rgba(160,196,255,0)}96%{background:rgba(255,214,145,.08)}97%{background:rgba(255,214,145,0)}}
+@media(prefers-reduced-motion:reduce){.snake-scene img,.snake-scene:after{animation:none}}
