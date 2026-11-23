@@ -1,1 +1,34 @@
-<!doctype html><html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#fff"><title>BHARAT AI</title><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css"></head><body><header><a class="brand" href="#"><span>भा</span> BHARAT <b>AI</b></a><button id="lang">हिंदी</button></header><main><section class="intro"><small>● आपका पर्सनल AI सहायक</small><h1>नमस्ते!<br><em>आज क्या काम करवाना है?</em></h1><p>भर्ती, सरकारी फॉर्म, योजनाएँ और दस्तावेज़ — अपनी भाषा में एक ही जगह।</p><div class="tiles"><button data-q="मेरे लिए सरकारी भर्तियाँ खोजो">▤ <b>सरकारी भर्ती</b><small>नौकरी और पात्रता</small></button><button data-q="मुझे सरकारी फॉर्म भरने में मदद चाहिए">✎ <b>फॉर्म सहायता</b><small>आवेदन की तैयारी</small></button><button data-q="मेरे दस्तावेज़ समझने में मदद करो">▧ <b>दस्तावेज़</b><small>PDF और जानकारी</small></button><button data-q="मेरे लिए सरकारी योजनाएँ खोजो">✦ <b>सरकारी योजनाएँ</b><small>लाभ और शर्तें</small></button></div></section><section class="panel"><div class="panelhead"><div class="avatar">AI</div><div><b>BHARAT AI Assistant</b><small>● सहायता के लिए तैयार</small></div><button id="reset">↻</button></div><div id="chat" aria-live="polite"><article class="bot"><b>नमस्ते! 🙏</b><p>बताइए आपको क्या काम करवाना है। उदाहरण: “राजस्थान में 12वीं पास के लिए सरकारी भर्तियाँ बताओ।”</p><small>अंतिम घोषणा, भुगतान और आवेदन सबमिट करने से पहले आपकी पुष्टि जरूरी होगी।</small></article></div><form id="form"><textarea id="message" rows="1" maxlength="2000" placeholder="अपना काम यहाँ लिखें..." required></textarea><button id="send">➤</button></form><aside>गलत जानकारी भरने के बजाय BHARAT AI आपसे पुष्टि माँगेगा।</aside></section></main><footer>BHARAT AI · भारत के लिए, आपकी भाषा में <span>Free-first MVP</span></footer><script src="app.js"></script></body></html>
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff"><title>BHARAT AI</title>
+<link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <div class="brandmark">भा</div><div class="brandtext"><strong>BHARAT AI</strong><small>भारत का AI सहायक</small></div>
+  <button id="reset" class="newchat" aria-label="नई चैट" title="नई चैट">＋</button>
+</header>
+<main id="chat" aria-live="polite">
+  <section class="welcome" id="welcome">
+    <div class="welcome-icon">भा</div>
+    <h1>नमस्ते! मैं BHARAT AI हूँ।</h1>
+    <p>सरकारी भर्ती, फॉर्म, योजनाओं या किसी भी सवाल के बारे में लिखें।</p>
+    <div class="quick-prompts">
+      <button data-q="राजस्थान में 12वीं पास के लिए सरकारी भर्तियाँ बताओ">सरकारी भर्तियाँ</button>
+      <button data-q="मुझे सरकारी फॉर्म भरने में मदद चाहिए">फॉर्म भरने में मदद</button>
+      <button data-q="सरकारी योजनाओं की जानकारी दो">सरकारी योजनाएँ</button>
+      <button data-q="मेरे दस्तावेज़ समझने में मदद करो">दस्तावेज़</button>
+    </div>
+  </section>
+</main>
+<form id="form" class="composer">
+  <textarea id="message" rows="1" maxlength="4000" placeholder="BHARAT AI से कुछ पूछें..." required aria-label="अपना संदेश लिखें"></textarea>
+  <button id="send" type="submit" aria-label="भेजें">↑</button>
+  <div class="disclaimer">BHARAT AI गलत जानकारी का अनुमान लगाने के बजाय आपसे पुष्टि माँगेगा।</div>
+</form>
+</div>
+<script src="app.js"></script>
+</body></html>
