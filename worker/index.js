@@ -96,21 +96,22 @@ async function generateWithFallback(key, contents, maxOutputTokens = 1400) {
 }
 
 function isInScope(message, priorHistory = []) {
-  const text = String(message || "").toLowerCase();
-  const outOfScope = /joke|jokes|story|stories|movie|song|music|dating|relationship|cricket score|football score|weather|shopping|recipe|game recommendation|मजाक|चुटकुला|कहानी|फिल्म|गाना|मौसम|खरीदना/;
+  const text = String(message || "").toLowerCase().trim();
+  // Reject obvious unrelated entertainment, but accept common Hinglish spellings.
+  const outOfScope = /\\b(joke|jokes|story|stories|movie|movies|song|songs|music|dating|relationship|cricket score|football score|weather|shopping|recipe|game recommendation)\\b|मजाक|चुटकुला|कहानी|फिल्म|गाना|मौसम|खरीदना/;
   if (outOfScope.test(text)) return false;
   const patterns = [
-    / भर्ती|भर्तियां|भर्तियाँ|नौकरी|सरकारी नौकरी|वैकेंसी|vacanc|recruit|career|job alert|employment/,
-    / परीक्षा|एग्जाम|exam|admit.?card|प्रवेश पत्र|result|रिजल्ट|परिणाम|syllabus|सिलेबस|पाठ्यक्रम|previous.?year|पिछले साल के प्रश्न|question paper|प्रश्न.?पत्र|entrance|competitive|प्रतियोगी/,
-    / फॉर्म|form|आवेदन|apply|application|registration|रजिस्ट्रेशन|दाखिला|admission|प्रवेश|scholarship|छात्रवृत्ति|योजना|scheme|सरकारी सेवा|certificate|प्रमाण.?पत्र|दस्तावेज|document|eligibility|पात्रता|notification|अधिसूचना|official website/,
-    / rbse|cbse|upsc|ssc|rrb|रेलवे|army|अग्निवीर|air force|वायुसेना|navy|नेवी|police|पुलिस|cet|neet|jee|cuet|board exam|बोर्ड परीक्षा|class ?(10|12)|10th|12th|बारहवीं|दसवीं/,
-    /physics|भौतिकी|chemistry|रसायन|biology|जीव.?विज्ञान|maths?|गणित|algebra|geometry|इतिहास|history|geography|भूगोल|economics|अर्थशास्त्र|grammar|व्याकरण|chapter|अध्याय|notes|नोट्स|numerical|सूत्र|formula|theorem|प्रमेय|परिभाषा|definition|concept|अवधारणा|homework|assignment|पाठ|प्रश्न.?उत्तर|समझाओ|explain/
+    /bharti|bhartiya|bhartiyan|sarkari|naukri|vacanc|recruit|career|job alert|employment|भर्ती|भर्तियां|भर्तियाँ|नौकरी|सरकारी नौकरी|वैकेंसी/,
+    /padhai|exam|pariksha|paper|admit.?card|result|syllabus|entrance|competitive|question paper|board exam|परीक्षा|एग्जाम|प्रवेश पत्र|रिजल्ट|परिणाम|सिलेबस|पाठ्यक्रम|प्रश्न.?पत्र|प्रतियोगी/,
+    /form|aavedan|apply|application|registration|dakhila|admission|scholarship|yojana|scheme|certificate|document|dastavez|eligibility|patrata|notification|official website|फॉर्म|आवेदन|रजिस्ट्रेशन|दाखिला|प्रवेश|छात्रवृत्ति|योजना|प्रमाण.?पत्र|दस्तावेज|पात्रता|अधिसूचना/,
+    /rbse|cbse|upsc|ssc|rrb|railway|army|agniveer|air force|navy|police|cet|neet|jee|cuet|10th|12th|बारहवीं|दसवीं|रेलवे|अग्निवीर|वायुसेना|नेवी|पुलिस|बोर्ड परीक्षा/,
+    /physics|bhoutiki|chemistry|rasayan|biology|ganit|maths?|algebra|geometry|history|itihas|geography|bhugol|economics|grammar|chapter|adhyay|notes|numerical|formula|theorem|definition|concept|homework|assignment|explain|भौतिकी|रसायन|जीव.?विज्ञान|गणित|इतिहास|भूगोल|अर्थशास्त्र|व्याकरण|अध्याय|नोट्स|सूत्र|प्रमेय|परिभाषा|अवधारणा|समझाओ/
   ];
   if (patterns.some(pattern => pattern.test(text))) return true;
-  const previousTopic = Array.isArray(priorHistory) && priorHistory
-    .filter(item => item?.role === "user" && Array.isArray(item?.parts))
-    .slice(-2)
-    .some(item => patterns.some(pattern => pattern.test(item.parts.map(part => String(part?.text || "")).join(" "))));
+  const previousTopic = Array.isArray(priorHistory) &&
+    priorHistory.filter(item => item?.role === "user" && Array.isArray(item?.parts))
+      .slice(-3)
+      .some(item => patterns.some(pattern => pattern.test(item.parts.map(part => String(part?.text || "")).join(" ").toLowerCase())));
   const shortFollowUp = /^(aur|iska|iske|ye|uska|kab|kahan|kaise|kitna|kitni|haan|nahi|samjhao|detail|details|link|fees|age|documents|aage|next|ok|thik|ठीक|और|इसका|इसके|ये|वो|कब|कहाँ|कैसे|कितना|कितनी|हाँ|नहीं|समझाओ|विस्तार|लिंक|फीस|उम्र|दस्तावेज़|आगे|बताओ)(\\b|\\s|$)/i.test(text);
   return previousTopic && shortFollowUp;
 }
