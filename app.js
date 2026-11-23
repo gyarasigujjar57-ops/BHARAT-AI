@@ -35,7 +35,7 @@ function getHistory() {
 
 // Render common Markdown safely: no raw HTML is ever inserted into the page.
 function appendInline(parent, text) {
-  const pattern = /(\\*\\*[^*]+\\*\\*|`[^`]+`|\\*[^*]+\\*)/g;
+  const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g;
   let last = 0, match;
   while ((match = pattern.exec(text)) !== null) {
     if (match.index > last) parent.append(document.createTextNode(text.slice(last, match.index)));
@@ -50,15 +50,15 @@ function appendInline(parent, text) {
 
 function renderMarkdown(element, markdown) {
   element.replaceChildren();
-  const lines = markdown.replace(/\\r/g, "").split("\\n");
+  const lines = markdown.replace(/\r/g, "").split("\n");
   let list = null, listKind = "";
   const closeList = () => { list = null; listKind = ""; };
   for (const raw of lines) {
     const line = raw.trimEnd();
     if (!line.trim()) { closeList(); continue; }
-    const heading = line.match(/^\\s{0,3}(#{1,3})\\s+(.+)$/);
-    const bullet = line.match(/^\\s*[-*+]\\s+(.+)$/);
-    const numbered = line.match(/^\\s*\\d+[.)]\\s+(.+)$/);
+    const heading = line.match(/^\s{0,3}(#{1,3})\s+(.+)$/);
+    const bullet = line.match(/^\s*[-*+]\s+(.+)$/);
+    const numbered = line.match(/^\s*\d+[.)]\s+(.+)$/);
     if (heading) {
       closeList();
       const h = document.createElement("h" + Math.min(heading[1].length + 2, 4));
