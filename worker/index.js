@@ -10,7 +10,9 @@ const json = (value, status = 200) => new Response(JSON.stringify(value), {
 
 const PRIMARY_MODEL = "gemini-3.8-flash";
 const FALLBACK_MODEL = "gemini-3.5-flash-lite";
-const SYSTEM = `You are BHARAT AI, a genuinely useful, clear and up-to-date assistant for people in India.
+const SYSTEM = `You are BHARAT AI, India's focused Study, Exam, Recruitment and Government-Form Action Assistant. You are NOT a general-purpose chatbot or entertainment companion.
+SCOPE: Help only with practical education and career administration (school/college/entrance/competitive exams, syllabus, exam notices, admit cards, results, previous papers and exam-related doubts), government/private recruitment information, eligibility, admissions, scholarships, government schemes/services, certificates, required documents, application forms, and step-by-step official application workflows. Do not provide general life coaching, generic "how should I study" motivation/planning, casual conversation, jokes, stories, entertainment, coding, shopping, relationship advice, or unrelated general knowledge. For out-of-scope requests, politely reply: "मैं यह काम नहीं कर सकता। BHARAT AI केवल पढ़ाई, परीक्षा, भर्ती, दाखिले, छात्रवृत्ति, सरकारी सेवाओं और फॉर्म से जुड़े कामों में मदद करता है।"
+
 LANGUAGE AND VOICE:
 Reply in the same language and script the user uses. If they write Hinglish, use natural easy Hinglish; if Hindi, use clean everyday Hindi. Sound warm, alert, confident and human—not robotic, salesy, overexcited or fake-friendly. Understand what the person actually means before answering.
 WRITING STYLE:
@@ -93,6 +95,17 @@ async function generateWithFallback(key, contents, maxOutputTokens = 1400) {
   }
 }
 
+function isInScope(message) {
+  const text = String(message || "").toLowerCase();
+  const patterns = [
+    / भर्ती|भर्तियां|भर्तियाँ|नौकरी|सरकारी नौकरी|वैकेंसी|vacanc|recruit|career|job alert|employment/,
+    / परीक्षा|एग्जाम|exam|admit.?card|प्रवेश पत्र|result|रिजल्ट|परिणाम|syllabus|सिलेबस|पाठ्यक्रम|previous.?year|पिछले साल के प्रश्न|question paper|प्रश्न.?पत्र|entrance|competitive|प्रतियोगी/,
+    / फॉर्म|form|आवेदन|apply|application|registration|रजिस्ट्रेशन|दाखिला|admission|प्रवेश|scholarship|छात्रवृत्ति|योजना|scheme|सरकारी सेवा|certificate|प्रमाण.?पत्र|दस्तावेज|document|eligibility|पात्रता|notification|अधिसूचना|official website/,
+    / rbse|cbse|upsc|ssc|rrb|रेलवे|army|अग्निवीर|air force|वायुसेना|navy|नेवी|police|पुलिस|cet|neet|jee|cuet|board exam|बोर्ड परीक्षा|class ?(10|12)|10th|12th|बारहवीं|दसवीं/
+  ];
+  return patterns.some(pattern => pattern.test(text));
+}
+
 function extractReply(payload) {
   return payload?.candidates?.[0]?.content?.parts
     ?.map(part => typeof part.text === "string" ? part.text : "")
@@ -104,10 +117,10 @@ async function generateCloudflareFallback(env, history) {
   if (!env.AI?.run) return "";
   try {
     const messages = [
-      { role: "system", content: SYSTEM + "\\n\\nIMPORTANT: This is the backup model. You do not have live web search in this request. Never claim that you checked today's news, vacancies, dates, or official websites. For current facts, clearly say they could not be verified in this reply." },
+      { role: "system", content: SYSTEM + "\n\nIMPORTANT: This is the backup model. You do not have live web search in this request. Never claim that you checked today's news, vacancies, dates, or official websites. For current facts, clearly say they could not be verified in this reply." },
       ...history.map(item => ({
         role: item.role === "model" ? "assistant" : "user",
-        content: item.parts.map(part => part.text).join("\\n")
+        content: item.parts.map(part => part.text).join("\n")
       }))
     ];
     const result = await env.AI.run("@cf/google/gemma-4-26b-a4b-it", {
@@ -178,6 +191,9 @@ export default {
     catch { return json({ error: "संदेश का डेटा सही नहीं है। दोबारा भेजें।" }, 400); }
 
     const message = typeof body.message === "string" ? body.message.trim().slice(0, 4000) : "";
+    if (message && !isInScope(message)) {
+      return json({ reply: "मैं यह काम नहीं कर सकता। BHARAT AI केवल पढ़ाई, परीक्षा, भर्ती, दाखिले, छात्रवृत्ति, सरकारी सेवाओं और फॉर्म से जुड़े कामों में मदद करता है।" });
+    }
     if (!message) return json({ error: "पहले अपना सवाल लिखें।" }, 400);
     if (!env.GEMINI_API_KEY) {
       return json({ error: "Cloudflare में Gemini API key जुड़ी नहीं है।" }, 503);
