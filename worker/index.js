@@ -101,7 +101,8 @@ function isInScope(message) {
     / भर्ती|भर्तियां|भर्तियाँ|नौकरी|सरकारी नौकरी|वैकेंसी|vacanc|recruit|career|job alert|employment/,
     / परीक्षा|एग्जाम|exam|admit.?card|प्रवेश पत्र|result|रिजल्ट|परिणाम|syllabus|सिलेबस|पाठ्यक्रम|previous.?year|पिछले साल के प्रश्न|question paper|प्रश्न.?पत्र|entrance|competitive|प्रतियोगी/,
     / फॉर्म|form|आवेदन|apply|application|registration|रजिस्ट्रेशन|दाखिला|admission|प्रवेश|scholarship|छात्रवृत्ति|योजना|scheme|सरकारी सेवा|certificate|प्रमाण.?पत्र|दस्तावेज|document|eligibility|पात्रता|notification|अधिसूचना|official website/,
-    / rbse|cbse|upsc|ssc|rrb|रेलवे|army|अग्निवीर|air force|वायुसेना|navy|नेवी|police|पुलिस|cet|neet|jee|cuet|board exam|बोर्ड परीक्षा|class ?(10|12)|10th|12th|बारहवीं|दसवीं/
+    / rbse|cbse|upsc|ssc|rrb|रेलवे|army|अग्निवीर|air force|वायुसेना|navy|नेवी|police|पुलिस|cet|neet|jee|cuet|board exam|बोर्ड परीक्षा|class ?(10|12)|10th|12th|बारहवीं|दसवीं/,
+    /physics|भौतिकी|chemistry|रसायन|biology|जीव.?विज्ञान|maths?|गणित|algebra|geometry|इतिहास|history|geography|भूगोल|economics|अर्थशास्त्र|grammar|व्याकरण|chapter|अध्याय|notes|नोट्स|numerical|सूत्र|formula|theorem|प्रमेय|परिभाषा|definition|concept|अवधारणा|homework|assignment|पाठ|प्रश्न.?उत्तर|समझाओ|explain/
   ];
   return patterns.some(pattern => pattern.test(text));
 }
