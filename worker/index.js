@@ -1,9 +1,127 @@
-const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET,POST,OPTIONS","Access-Control-Allow-Headers":"Content-Type"};
-const json=(x,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{"Content-Type":"application/json; charset=utf-8",...cors}});
-const SYSTEM=`You are BHARAT AI, a capable, thoughtful, accurate assistant for people in India.
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type"
+};
+const json = (value, status = 200) => new Response(JSON.stringify(value), {
+  status,
+  headers: { "Content-Type": "application/json; charset=utf-8", ...cors }
+});
+
+const SYSTEM = `You are BHARAT AI, a capable, thoughtful, accurate assistant for people in India.
 Reply in the language the user uses. If Hindi/Hinglish, use natural simple Hindi/Hinglish.
 Understand conversation history and answer the exact question first. Be clear, practical, specific, and thoughtful. For complex requests, use concise headings and numbered steps. Avoid filler and repetition.
 Never invent current vacancies, deadlines, eligibility, fees, scheme rules, official links, or live facts. If not verified, say so clearly.
 Never request Aadhaar/PAN numbers, OTPs, passwords, or bank credentials. The user must handle OTP, CAPTCHA, biometrics, payments, declarations and final submission.
 You are BHARAT AI. Do not claim live browsing, databases, or actions that are not available.`;
-export default{async fetch(req,env){const u=new URL(req.url);if(req.method==="OPTIONS")return new Response(null,{headers:cors});if(u.pathname==="/health")return json({ok:true,service:"BHARAT AI API",mode:env.GEMINI_API_KEY?"ai-configured":"demo-no-key",model:"gemini-3.8-flash"});if(u.pathname!=="/api/chat"||req.method!=="POST")return json({error:"Not found"},404);let b;try{b=await req.json()}catch{return json({error:"Invalid JSON"},400)}const m=typeof b.message==="string"?b.message.trim().slice(0,4000):"";if(!m)return json({error:"Message required"},400);if(!env.GEMINI_API_KEY)return json({error:"Gemini API key is not connected. Please configure GEMINI_API_KEY in Cloudflare."},503);const history=Array.isArray(b.history)?b.history.slice(-12).filter(x=>["user","model"].includes(x?.role)&&Array.isArray(x?.parts)).map(x=>({role:x.role,parts:x.parts.slice(0,1).map(p=>({text:String(p?.text||"").slice(0,4000)}))})).filter(x=>x.parts[0].text):[];history.push({role:"user",parts:[{text:m}]});let r;try{r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key="+encodeURIComponent(env.GEMINI_API_KEY),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({systemInstruction:{parts:[{text:SYSTEM}]},contents:history,generationConfig:{maxOutputTokens:1100}})});}catch(e){return json({error:"Gemini तक कनेक्शन नहीं हो पाया। कृपया दोबारा कोशिश करें।"},502)}if(!r.ok){let detail="";try{const x=await r.json();detail=x.error?.message||""}catch{}return json({error:"Gemini API ने अनुरोध स्वीकार नहीं किया"+(detail?": "+detail:""),status:r.status},502)}let d;try{d=await r.json()}catch{return json({error:"Gemini से पढ़ने योग्य जवाब नहीं मिला।"},502)}const reply=d.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("").trim();if(!reply)return json({error:"Gemini ने खाली जवाब दिया।"},502);return json({reply})}};
+
+async function askGemini(model, key, contents) {
+  return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + encodeURIComponent(key), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM }] },
+      contents,
+      generationConfig: { maxOutputTokens: 1400, temperature: 0.7 }
+    }),
+    signal: AbortSignal.timeout(30000)
+  });
+}
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    if (request.method === "OPTIONS") return new Response(null, { headers: cors });
+
+    if (url.pathname === "/health" && request.method === "GET") {
+      return json({
+        ok: true,
+        service: "BHARAT AI API",
+        aiKeyConfigured: Boolean(env.GEMINI_API_KEY),
+        primaryModel: "gemini-3.8-flash",
+        fallbackModel: "gemini-2.5-flash"
+      });
+    }
+
+    if (url.pathname !== "/api/chat" || request.method !== "POST") {
+      return json({ error: "यह API रास्ता उपलब्ध नहीं है।" }, 404);
+    }
+
+    let body;
+    try { body = await request.json(); }
+    catch { return json({ error: "संदेश का डेटा सही नहीं है। दोबारा भेजें।" }, 400); }
+
+    const message = typeof body.message === "string" ? body.message.trim().slice(0, 4000) : "";
+    if (!message) return json({ error: "पहले अपना सवाल लिखें।" }, 400);
+    if (!env.GEMINI_API_KEY) {
+      return json({ error: "Cloudflare में Gemini API key जुड़ी नहीं है।" }, 503);
+    }
+
+    let history = Array.isArray(body.history) ? body.history.slice(-12) : [];
+    history = history
+      .filter(item => ["user", "model"].includes(item?.role) && Array.isArray(item?.parts))
+      .map(item => ({
+        role: item.role,
+        parts: item.parts.slice(0, 1).map(part => ({ text: String(part?.text || "").trim().slice(0, 3500) }))
+      }))
+      .filter(item => item.parts[0].text);
+
+    while (history.length && history[0].role !== "user") history.shift();
+    if (history.length && history[history.length - 1].role !== "model") history.pop();
+    history.push({ role: "user", parts: [{ text: message }] });
+
+    let response;
+    try {
+      response = await askGemini("gemini-3.8-flash", env.GEMINI_API_KEY, history);
+      if (response.status === 404) {
+        response = await askGemini("gemini-2.5-flash", env.GEMINI_API_KEY, history);
+      }
+    } catch (error) {
+      const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError";
+      return json({
+        error: timedOut
+          ? "AI को जवाब तैयार करने में बहुत समय लगा। थोड़ी देर बाद फिर कोशिश करें।"
+          : "Gemini सर्वर से कनेक्शन नहीं हो पाया।"
+      }, 502);
+    }
+
+    if (!response.ok) {
+      let detail = "";
+      try {
+        const payload = await response.json();
+        detail = payload?.error?.message || "";
+      } catch (_) {}
+
+      if (response.status === 401 || response.status === 403) {
+        return json({ error: "Gemini API key अमान्य है या इस API की अनुमति नहीं है। Cloudflare Secret जाँचें।" }, 502);
+      }
+      if (response.status === 429) {
+        return json({ error: "Gemini की मुफ्त उपयोग सीमा अभी पूरी हो गई है। कुछ देर बाद कोशिश करें।" }, 429);
+      }
+      return json({
+        error: "Gemini API ने जवाब नहीं दिया।" + (detail ? " विवरण: " + detail.slice(0, 220) : ""),
+        upstreamStatus: response.status
+      }, 502);
+    }
+
+    let payload;
+    try { payload = await response.json(); }
+    catch { return json({ error: "Gemini से सही जवाब नहीं पढ़ा जा सका।" }, 502); }
+
+    const reply = payload?.candidates?.[0]?.content?.parts
+      ?.map(part => typeof part.text === "string" ? part.text : "")
+      .join("")
+      .trim();
+
+    if (!reply) {
+      const reason = payload?.promptFeedback?.blockReason;
+      return json({
+        error: reason
+          ? "यह सवाल सुरक्षा नियमों के कारण पूरा नहीं हो सका।"
+          : "Gemini ने खाली जवाब भेजा। दोबारा कोशिश करें।"
+      }, 502);
+    }
+
+    return json({ reply });
+  }
+};
