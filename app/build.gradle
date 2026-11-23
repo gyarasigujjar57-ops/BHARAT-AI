@@ -19,3 +19,7 @@ tasks.register('copyWebAssets', Copy) {
 }
 android.sourceSets.main.assets.srcDir(layout.buildDirectory.dir('generated/bharatAssets'))
 tasks.named('preBuild').configure { dependsOn 'copyWebAssets' }
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+}
