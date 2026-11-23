@@ -48,20 +48,40 @@ async function readGeminiError(response) {
 async function generateWithFallback(key, contents, maxOutputTokens = 1400) {
   let response;
   let model = PRIMARY_MODEL;
+  let firstError = "";
   try {
     response = await callGemini(model, key, contents, maxOutputTokens);
-    if (response.status === 404 || response.status === 400) {
-      const firstError = await readGeminiError(response);
-      if (response.status === 404 || /model|not found|not supported/i.test(firstError)) {
-        model = FALLBACK_MODEL;
-        response = await callGemini(model, key, contents, maxOutputTokens);
-      } else {
-        return { response, model, error: firstError };
-      }
-    }
-    return { response, model };
+    if (response.ok) return { response, model };
+
+    const status = response.status;
+    firstError = await readGeminiError(response);
+
+    // Try the alternate model when the primary model is unavailable,
+    // rate-limited, over quota, or temporarily failing.
+    const shouldFallback =
+      status === 404 ||
+      status === 429 ||
+      status >= 500 ||
+      (status === 400 && /model|not found|not supported/i.test(firstError));
+
+    if (!shouldFallback) return { response, model, error: firstError };
+
+    model = FALLBACK_MODEL;
+    response = await callGemini(model, key, contents, maxOutputTokens);
+    return { response, model, error: firstError };
   } catch (error) {
-    return { response: null, model, error: error?.name === "AbortError" ? "timeout" : "network" };
+    const firstFailure = error?.name === "AbortError" ? "timeout" : "network";
+    try {
+      model = FALLBACK_MODEL;
+      response = await callGemini(model, key, contents, maxOutputTokens);
+      return { response, model, error: firstFailure };
+    } catch (fallbackError) {
+      return {
+        response: null,
+        model,
+        error: fallbackError?.name === "AbortError" ? "timeout" : "network"
+      };
+    }
   }
 }
 
