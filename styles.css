@@ -17,3 +17,14 @@
 .thinking-dots i:nth-child(2){animation-delay:.16s}.thinking-dots i:nth-child(3){animation-delay:.32s}
 @keyframes bhGlow{0%,80%,100%{transform:translateY(1px) scale(.78);opacity:.35;box-shadow:0 0 2px rgba(22,131,75,.2)}40%{transform:translateY(-2px) scale(1.12);opacity:1;box-shadow:0 0 7px rgba(22,131,75,.65),0 0 14px rgba(22,131,75,.25)}}
 @media(prefers-reduced-motion:reduce){.thinking-dots i{animation:none;opacity:.85}}
+
+/* Tiny crawling snake loader: curved body travels forward */
+.bot .bubble.thinking{display:inline-flex;align-items:center;justify-content:center;width:58px;min-width:58px;height:34px;min-height:34px;padding:0 8px;background:linear-gradient(135deg,#fbfffc,#edf8f0);border:1px solid rgba(22,131,75,.18);box-shadow:0 2px 14px rgba(22,131,75,.10),inset 0 0 12px rgba(255,255,255,.95);border-radius:14px 14px 14px 5px}
+.snake-loader{position:relative;display:block;width:42px;height:19px}
+.snake-loader i{position:absolute;top:8px;left:0;width:6px;height:6px;border-radius:50%;background:linear-gradient(145deg,#53c982,#08743d);box-shadow:0 0 5px rgba(26,165,83,.45);animation:snakeCrawl 1.15s ease-in-out infinite}
+.snake-loader i:nth-child(1){animation-delay:0s}.snake-loader i:nth-child(2){animation-delay:.09s}.snake-loader i:nth-child(3){animation-delay:.18s}.snake-loader i:nth-child(4){animation-delay:.27s}.snake-loader i:nth-child(5){animation-delay:.36s}
+.snake-loader b{position:absolute;left:0;top:5px;width:9px;height:9px;border-radius:55% 55% 45% 45%;background:radial-gradient(circle at 35% 30%,#a5f3bd 0 10%,#28ad60 42%,#08743d 100%);box-shadow:0 0 7px rgba(26,165,83,.65);animation:snakeHead 1.15s ease-in-out infinite}
+.snake-loader b:after{content:"";position:absolute;right:1px;top:2px;width:2px;height:2px;border-radius:50%;background:#f7fff9;box-shadow:0 3px 0 #f7fff9}
+@keyframes snakeCrawl{0%,100%{transform:translate(0,3px) scale(.78);opacity:.5}25%{transform:translate(7px,-2px) scale(1);opacity:1}50%{transform:translate(16px,3px) scale(.9);opacity:.9}75%{transform:translate(25px,-2px) scale(.8);opacity:.65}}
+@keyframes snakeHead{0%,100%{transform:translate(0,2px) rotate(-8deg)}25%{transform:translate(8px,-3px) rotate(12deg)}50%{transform:translate(17px,2px) rotate(-8deg)}75%{transform:translate(26px,-3px) rotate(10deg)}}
+@media(prefers-reduced-motion:reduce){.snake-loader i,.snake-loader b{animation:none;opacity:.9}}
