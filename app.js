@@ -78,16 +78,34 @@ function renderMarkdown(element, markdown) {
   chat.scrollTop = chat.scrollHeight;
 }
 
-// The API currently returns a complete reply; reveal it progressively in the chat UI.
-async function revealReply(element, text) {
-  let shown = "";
-  const step = 7;
-  for (let i = 0; i < text.length; i += step) {
-    shown += text.slice(i, i + step);
-    renderMarkdown(element, shown);
-    await new Promise(resolve => setTimeout(resolve, 18));
+// Read the real token stream from the backend; no simulated typing.
+async function readLiveReply(response, element) {
+  if (!response.body?.getReader) {
+    const data = await response.json();
+    return data.reply || "";
   }
-  renderMarkdown(element, text);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "", fullText = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split("\n\n");
+    buffer = events.pop() || "";
+    for (const event of events) {
+      const line = event.split("\n").find(x => x.startsWith("data:"));
+      if (!line) continue;
+      let packet;
+      try { packet = JSON.parse(line.slice(5).trim()); } catch (_) { continue; }
+      if (packet.error) throw new Error(packet.error);
+      if (packet.text) {
+        fullText += packet.text;
+        renderMarkdown(element, fullText);
+      }
+    }
+  }
+  return fullText;
 }
 
 async function checkAIConnection() {
@@ -121,28 +139,30 @@ async function ask(question) {
   const reply = addMessage("", "bot");
   reply.classList.add("thinking");
   reply.setAttribute("aria-label", "BHARAT AI जवाब तैयार कर रहा है");
-  reply.innerHTML = '<span class="thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span>';
+  reply.innerHTML = '<span class="snake-loader" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><b></b></span>';
   reply.dataset.pending = "true";
   send.disabled = true;
   input.disabled = true;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 40000);
+  const timeout = setTimeout(() => controller.abort(), 90000);
   try {
-    const response = await fetch(API_BASE_URL + "/api/chat", {
+    const response = await fetch(API_BASE_URL + "/api/chat/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: question, history, language: "hi" }),
       signal: controller.signal
     });
-    let data = {};
-    try { data = await response.json(); } catch (_) {}
-    if (!response.ok) throw new Error(data.error || data.message || ("सर्वर त्रुटि " + response.status));
-    if (typeof data.reply !== "string" || !data.reply.trim()) throw new Error("AI से खाली जवाब मिला।");
+    if (!response.ok) {
+      let err = {};
+      try { err = await response.json(); } catch (_) {}
+      throw new Error(err.error || err.message || ("सर्वर त्रुटि " + response.status));
+    }
     delete reply.dataset.pending;
     reply.classList.remove("thinking");
     reply.removeAttribute("aria-label");
-    await revealReply(reply, data.reply.trim());
+    const liveText = await readLiveReply(response, reply);
+    if (!liveText.trim()) throw new Error("AI से खाली जवाब मिला।");
   } catch (error) {
     reply.dataset.failed = "true";
     reply.classList.remove("thinking");
