@@ -12,7 +12,7 @@ android {
     }
 }
 
-def webFiles = ['index.html', 'styles.css', 'app.js', 'manifest.webmanifest', 'sw.js']
+def webFiles = ['index.html', 'styles.css', 'app.js', 'manifest.webmanifest', 'sw.js', 'assets/**']
 tasks.register('copyWebAssets', Copy) {
     from(rootProject.projectDir) { include webFiles }
     into layout.buildDirectory.dir('generated/bharatAssets/www')
