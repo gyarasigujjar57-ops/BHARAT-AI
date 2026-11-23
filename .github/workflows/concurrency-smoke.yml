@@ -1,0 +1,42 @@
+name: BHARAT AI 100-user API smoke test
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  worker-health-load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Set up k6
+        uses: grafana/setup-k6-action@v1
+      - name: Test 100 concurrent lightweight health requests
+        run: |
+          cat > load-test.js <<'EOF'
+          import http from 'k6/http';
+          import { check, sleep } from 'k6';
+
+          export const options = {
+            scenarios: {
+              concurrent_users: {
+                executor: 'constant-vus',
+                vus: 100,
+                duration: '30s',
+              },
+            },
+            thresholds: {
+              http_req_failed: ['rate<0.01'],
+              http_req_duration: ['p(95)<2000'],
+            },
+          };
+
+          export default function () {
+            const response = http.get('https://bharat-ai-api.gyarasigujjar57.workers.dev/health');
+            check(response, {
+              'health endpoint returns 200': (r) => r.status === 200,
+              'service identifies as BHARAT AI API': (r) => r.body.includes('BHARAT AI API'),
+            });
+            sleep(1);
+          }
+          EOF
+          k6 run load-test.js
