@@ -5,9 +5,11 @@ const cors = {
 };
 const json = (value, status = 200) => new Response(JSON.stringify(value), {
   status,
-  headers: { "Content-Type": "application/json; charset=utf-8", ...cors }
+  headers: { "Content-Type": "application/json; charset=utf-8", ...cors, "Cache-Control": "no-store" }
 });
 
+const PRIMARY_MODEL = "gemini-3.8-flash";
+const FALLBACK_MODEL = "gemini-3.5-flash-lite";
 const SYSTEM = `You are BHARAT AI, a capable, thoughtful, accurate assistant for people in India.
 Reply in the language the user uses. If Hindi/Hinglish, use natural simple Hindi/Hinglish.
 Understand conversation history and answer the exact question first. Be clear, practical, specific, and thoughtful. For complex requests, use concise headings and numbered steps. Avoid filler and repetition.
@@ -15,32 +17,104 @@ Never invent current vacancies, deadlines, eligibility, fees, scheme rules, offi
 Never request Aadhaar/PAN numbers, OTPs, passwords, or bank credentials. The user must handle OTP, CAPTCHA, biometrics, payments, declarations and final submission.
 You are BHARAT AI. Do not claim live browsing, databases, or actions that are not available.`;
 
-async function askGemini(model, key, contents) {
-  return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + encodeURIComponent(key), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM }] },
-      contents,
-      generationConfig: { maxOutputTokens: 1400, temperature: 0.7 }
-    }),
-    signal: AbortSignal.timeout(30000)
-  });
+async function callGemini(model, key, contents, maxOutputTokens = 1400) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 25000);
+  try {
+    return await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + encodeURIComponent(key), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM }] },
+        contents,
+        generationConfig: { maxOutputTokens, temperature: 0.7 }
+      }),
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function readGeminiError(response) {
+  try {
+    const payload = await response.json();
+    return payload?.error?.message || "";
+  } catch (_) {
+    return "";
+  }
+}
+
+async function generateWithFallback(key, contents, maxOutputTokens = 1400) {
+  let response;
+  let model = PRIMARY_MODEL;
+  try {
+    response = await callGemini(model, key, contents, maxOutputTokens);
+    if (response.status === 404 || response.status === 400) {
+      const firstError = await readGeminiError(response);
+      if (response.status === 404 || /model|not found|not supported/i.test(firstError)) {
+        model = FALLBACK_MODEL;
+        response = await callGemini(model, key, contents, maxOutputTokens);
+      } else {
+        return { response, model, error: firstError };
+      }
+    }
+    return { response, model };
+  } catch (error) {
+    return { response: null, model, error: error?.name === "AbortError" ? "timeout" : "network" };
+  }
+}
+
+function extractReply(payload) {
+  return payload?.candidates?.[0]?.content?.parts
+    ?.map(part => typeof part.text === "string" ? part.text : "")
+    .join("")
+    .trim() || "";
 }
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (request.method === "OPTIONS") return new Response(null, { headers: cors });
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: cors });
+    }
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({
-        ok: true,
-        service: "BHARAT AI API",
-        aiKeyConfigured: Boolean(env.GEMINI_API_KEY),
-        primaryModel: "gemini-3.8-flash",
-        fallbackModel: "gemini-2.5-flash"
-      });
+      if (!env.GEMINI_API_KEY) {
+        return json({ ok: false, aiKeyConfigured: false, error: "Cloudflare में Gemini API key जुड़ी नहीं है।" }, 503);
+      }
+      if (url.searchParams.get("test") !== "1") {
+        return json({ ok: true, service: "BHARAT AI API", aiKeyConfigured: true, aiReady: "not_tested" });
+      }
+
+      const check = await generateWithFallback(env.GEMINI_API_KEY, [
+        { role: "user", parts: [{ text: "Reply with exactly: BHARAT AI READY" }] }
+      ], 20);
+      if (!check.response) {
+        return json({
+          ok: false, aiKeyConfigured: true, aiReady: false,
+          error: check.error === "timeout"
+            ? "Gemini ने जाँच का जवाब समय पर नहीं दिया।"
+            : "Cloudflare से Gemini तक कनेक्शन नहीं हो पाया।"
+        }, 502);
+      }
+      if (!check.response.ok) {
+        const detail = check.error || await readGeminiError(check.response);
+        return json({
+          ok: false, aiKeyConfigured: true, aiReady: false,
+          error: check.response.status === 401 || check.response.status === 403
+            ? "Gemini API key अमान्य है या API की अनुमति नहीं है।"
+            : check.response.status === 429
+              ? "Gemini की उपयोग सीमा अभी पूरी है।"
+              : "Gemini ने जाँच अस्वीकार की: " + (detail || ("HTTP " + check.response.status)).slice(0, 180)
+        }, 502);
+      }
+      let payload;
+      try { payload = await check.response.json(); }
+      catch (_) { return json({ ok: false, aiReady: false, error: "Gemini का टेस्ट जवाब पढ़ा नहीं जा सका।" }, 502); }
+      const reply = extractReply(payload);
+      if (!reply) return json({ ok: false, aiReady: false, error: "Gemini ने टेस्ट में खाली जवाब भेजा।" }, 502);
+      return json({ ok: true, aiKeyConfigured: true, aiReady: true, model: check.model, testReply: reply });
     }
 
     if (url.pathname !== "/api/chat" || request.method !== "POST") {
@@ -70,49 +144,34 @@ export default {
     if (history.length && history[history.length - 1].role !== "model") history.pop();
     history.push({ role: "user", parts: [{ text: message }] });
 
-    let response;
-    try {
-      response = await askGemini("gemini-3.8-flash", env.GEMINI_API_KEY, history);
-      if (response.status === 404) {
-        response = await askGemini("gemini-2.5-flash", env.GEMINI_API_KEY, history);
-      }
-    } catch (error) {
-      const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError";
+    const result = await generateWithFallback(env.GEMINI_API_KEY, history);
+    if (!result.response) {
       return json({
-        error: timedOut
-          ? "AI को जवाब तैयार करने में बहुत समय लगा। थोड़ी देर बाद फिर कोशिश करें।"
-          : "Gemini सर्वर से कनेक्शन नहीं हो पाया।"
+        error: result.error === "timeout"
+          ? "Gemini ने जवाब देने में बहुत समय लिया। दोबारा कोशिश करें।"
+          : "Cloudflare से Gemini तक कनेक्शन नहीं हो पाया।"
       }, 502);
     }
 
-    if (!response.ok) {
-      let detail = "";
-      try {
-        const payload = await response.json();
-        detail = payload?.error?.message || "";
-      } catch (_) {}
-
-      if (response.status === 401 || response.status === 403) {
+    if (!result.response.ok) {
+      const detail = result.error || await readGeminiError(result.response);
+      if (result.response.status === 401 || result.response.status === 403) {
         return json({ error: "Gemini API key अमान्य है या इस API की अनुमति नहीं है। Cloudflare Secret जाँचें।" }, 502);
       }
-      if (response.status === 429) {
-        return json({ error: "Gemini की मुफ्त उपयोग सीमा अभी पूरी हो गई है। कुछ देर बाद कोशिश करें।" }, 429);
+      if (result.response.status === 429) {
+        return json({ error: "Gemini की उपयोग सीमा अभी पूरी हो गई है। कुछ देर बाद फिर कोशिश करें।" }, 429);
       }
       return json({
         error: "Gemini API ने जवाब नहीं दिया।" + (detail ? " विवरण: " + detail.slice(0, 220) : ""),
-        upstreamStatus: response.status
+        upstreamStatus: result.response.status
       }, 502);
     }
 
     let payload;
-    try { payload = await response.json(); }
-    catch { return json({ error: "Gemini से सही जवाब नहीं पढ़ा जा सका।" }, 502); }
+    try { payload = await result.response.json(); }
+    catch (_) { return json({ error: "Gemini से सही जवाब नहीं पढ़ा जा सका।" }, 502); }
 
-    const reply = payload?.candidates?.[0]?.content?.parts
-      ?.map(part => typeof part.text === "string" ? part.text : "")
-      .join("")
-      .trim();
-
+    const reply = extractReply(payload);
     if (!reply) {
       const reason = payload?.promptFeedback?.blockReason;
       return json({
@@ -122,6 +181,6 @@ export default {
       }, 502);
     }
 
-    return json({ reply });
+    return json({ reply, model: result.model });
   }
 };
