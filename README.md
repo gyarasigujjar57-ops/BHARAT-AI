@@ -1,6 +1,6 @@
 # BHARAT AI 🇮🇳
 
-India's all-in-one personal AI assistant — a free-first MVP for recruitment, government services, document guidance and everyday digital tasks.
+India's focused Study & Action Assistant for exams, recruitment, admissions, scholarships, government services, documents and application forms. It is intentionally not a general-purpose chatbot.
 
 ## First foundation
 - Responsive Hindi-first web app and installable PWA
