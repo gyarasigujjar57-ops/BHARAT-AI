@@ -1,12 +1,124 @@
-const API_BASE_URL="https://bharat-ai-api.gyarasigujjar57.workers.dev";
-const chat=document.querySelector("#chat"),form=document.querySelector("#form"),input=document.querySelector("#message"),send=document.querySelector("#send");
-function addMessage(text,role){const wrap=document.createElement("div");wrap.className="message "+role;const bubble=document.createElement("div");bubble.className="bubble";bubble.textContent=text;wrap.append(wrap?bubble:null);wrap.replaceChildren(bubble);chat.append(wrap);chat.scrollTop=chat.scrollHeight;return bubble}
-function hideWelcome(){const w=document.querySelector("#welcome");if(w)w.remove()}
-function getHistory(){return [...chat.querySelectorAll(".message")].map(el=>({role:el.classList.contains("user")?"user":"model",parts:[{text:el.querySelector(".bubble")?.textContent||""}]})).filter(x=>x.parts[0].text.trim()).slice(-12)}
-async function ask(q){hideWelcome();const history=getHistory();addMessage(q,"user");const reply=addMessage("BHARAT AI सोच रहा है…","bot");send.disabled=true;try{const response=await fetch(API_BASE_URL+"/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:q,history,language:"hi"})});let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(data.error||data.message||("सर्वर त्रुटि ("+response.status+")"));if(!data.reply||!String(data.reply).trim())throw new Error("AI से खाली जवाब मिला।");reply.textContent=data.reply}catch(error){reply.textContent="अभी AI से जवाब नहीं मिला। कारण: "+(error.message==="Failed to fetch"?"इंटरनेट या AI सर्वर से कनेक्शन नहीं हो पाया।":error.message)+" कृपया फिर कोशिश करें।";}finally{send.disabled=false;input.focus();chat.scrollTop=chat.scrollHeight}}
-form.addEventListener("submit",e=>{e.preventDefault();const q=input.value.trim();if(!q||send.disabled)return;input.value="";input.style.height="46px";ask(q)});
-input.addEventListener("input",()=>{input.style.height="46px";input.style.height=Math.min(input.scrollHeight,130)+"px"});
-function bindQuickPrompts(){document.querySelectorAll("[data-q]").forEach(b=>b.addEventListener("click",()=>ask(b.dataset.q)))}
+const API_BASE_URL = "https://bharat-ai-api.gyarasigujjar57.workers.dev";
+const chat = document.querySelector("#chat");
+const form = document.querySelector("#form");
+const input = document.querySelector("#message");
+const send = document.querySelector("#send");
+
+function addMessage(text, role) {
+  const wrap = document.createElement("div");
+  wrap.className = "message " + role;
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.textContent = text;
+  wrap.append(bubble);
+  chat.append(wrap);
+  chat.scrollTop = chat.scrollHeight;
+  return bubble;
+}
+
+function hideWelcome() {
+  document.querySelector("#welcome")?.remove();
+}
+
+function getHistory() {
+  return [...chat.querySelectorAll(".message")]
+    .map(el => {
+      const bubble = el.querySelector(".bubble");
+      const text = bubble?.textContent?.trim() || "";
+      if (!text || bubble?.dataset.failed === "true" || bubble?.dataset.pending === "true") return null;
+      if (el.classList.contains("user")) return { role: "user", parts: [{ text }] };
+      if (el.classList.contains("bot")) return { role: "model", parts: [{ text }] };
+      return null;
+    })
+    .filter(Boolean)
+    .slice(-12);
+}
+
+async function ask(question) {
+  hideWelcome();
+  const history = getHistory();
+  addMessage(question, "user");
+  const reply = addMessage("BHARAT AI जवाब तैयार कर रहा है…", "bot");
+  reply.dataset.pending = "true";
+  send.disabled = true;
+  input.disabled = true;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 40000);
+
+  try {
+    const response = await fetch(API_BASE_URL + "/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: question, history, language: "hi" }),
+      signal: controller.signal
+    });
+
+    let data = {};
+    try { data = await response.json(); } catch (_) {}
+
+    if (!response.ok) {
+      const reason = data.error || data.message || ("सर्वर त्रुटि " + response.status);
+      throw new Error(reason);
+    }
+    if (typeof data.reply !== "string" || !data.reply.trim()) {
+      throw new Error("AI से खाली जवाब मिला।");
+    }
+
+    reply.textContent = data.reply.trim();
+    delete reply.dataset.pending;
+  } catch (error) {
+    reply.dataset.failed = "true";
+    delete reply.dataset.pending;
+    if (error.name === "AbortError") {
+      reply.textContent = "जवाब आने में बहुत समय लगा। इंटरनेट जाँचकर दोबारा भेजें।";
+    } else if (error.message === "Failed to fetch" || error instanceof TypeError) {
+      reply.textContent = "सर्वर से कनेक्शन नहीं हुआ। इंटरनेट या सर्वर कनेक्शन जाँचें।";
+    } else {
+      reply.textContent = "AI जवाब नहीं दे पाया: " + error.message;
+    }
+  } finally {
+    clearTimeout(timeout);
+    send.disabled = false;
+    input.disabled = false;
+    input.focus();
+    chat.scrollTop = chat.scrollHeight;
+  }
+}
+
+form.addEventListener("submit", event => {
+  event.preventDefault();
+  const question = input.value.trim();
+  if (!question || send.disabled) return;
+  input.value = "";
+  input.style.height = "46px";
+  ask(question);
+});
+
+input.addEventListener("input", () => {
+  input.style.height = "46px";
+  input.style.height = Math.min(input.scrollHeight, 130) + "px";
+});
+
+function bindQuickPrompts() {
+  document.querySelectorAll("[data-q]").forEach(button => {
+    button.addEventListener("click", () => {
+      if (!send.disabled) ask(button.dataset.q);
+    });
+  });
+}
 bindQuickPrompts();
-document.querySelector("#reset").addEventListener("click",()=>{chat.innerHTML='<section class="welcome" id="welcome"><div class="welcome-icon">भा</div><h1>नमस्ते! मैं BHARAT AI हूँ।</h1><p>सरकारी भर्ती, फॉर्म, योजनाओं या किसी भी सवाल के बारे में लिखें।</p><div class="quick-prompts"><button data-q="राजस्थान में 12वीं पास के लिए सरकारी भर्तियाँ बताओ">सरकारी भर्तियाँ</button><button data-q="मुझे सरकारी फॉर्म भरने में मदद चाहिए">फॉर्म भरने में मदद</button><button data-q="सरकारी योजनाओं की जानकारी दो">सरकारी योजनाएँ</button><button data-q="मेरे दस्तावेज़ समझने में मदद करो">दस्तावेज़</button></div></section>';bindQuickPrompts();input.focus()});
-input.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();form.requestSubmit()}});
+
+document.querySelector("#reset").addEventListener("click", () => {
+  if (send.disabled) return;
+  chat.innerHTML = '<section class="welcome" id="welcome"><div class="welcome-icon">भा</div><h1>नमस्ते! मैं BHARAT AI हूँ।</h1><p>सरकारी भर्ती, फॉर्म, योजनाओं या किसी भी सवाल के बारे में लिखें।</p><div class="quick-prompts"><button data-q="राजस्थान में 12वीं पास के लिए सरकारी भर्तियाँ बताओ">सरकारी भर्तियाँ</button><button data-q="मुझे सरकारी फॉर्म भरने में मदद चाहिए">फॉर्म भरने में मदद</button><button data-q="सरकारी योजनाओं की जानकारी दो">सरकारी योजनाएँ</button><button data-q="मेरे दस्तावेज़ समझने में मदद करो">दस्तावेज़</button></div></section>';
+  bindQuickPrompts();
+  input.focus();
+});
+
+input.addEventListener("keydown", event => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    form.requestSubmit();
+  }
+});
