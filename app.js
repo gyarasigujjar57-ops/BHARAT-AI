@@ -141,12 +141,14 @@ async function checkAIConnection() {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 35000);
   try {
-    const response = await fetch(API_BASE_URL + "/health?test=1", { method: "GET", cache: "no-store", signal: controller.signal });
+    // Cheap health check only. Never spend a Gemini request just because
+    // someone opened the app or tapped the connection indicator.
+    const response = await fetch(API_BASE_URL + "/health", { method: "GET", cache: "no-store", signal: controller.signal });
     const data = await response.json();
-    if (!response.ok || data.aiReady !== true) throw new Error(data.error || "AI कनेक्शन नहीं बना।");
-    connection.textContent = "AI तैयार है · " + data.model;
+    if (!response.ok || data.ok !== true || data.aiKeyConfigured !== true) throw new Error(data.error || "सर्वर कनेक्शन नहीं बना।");
+    connection.textContent = "सर्वर जुड़ा है · AI सवाल पर चलेगा";
     connection.classList.add("ready");
-    connection.title = "AI से टेस्ट जवाब मिला।";
+    connection.title = "सर्वर उपलब्ध है। Gemini का उपयोग तभी होगा जब आप सवाल भेजेंगे।";
   } catch (error) {
     connection.textContent = "AI कनेक्शन में समस्या · फिर जाँचें";
     connection.classList.add("failed");
