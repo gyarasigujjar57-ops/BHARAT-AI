@@ -80,34 +80,59 @@ function renderMarkdown(element, markdown) {
 
 // Read the real token stream from the backend; no simulated typing.
 async function readLiveReply(response, element) {
+  const streamText = document.createElement("span");
+  streamText.className = "stream-text";
+  const snake = document.createElement("span");
+  snake.className = "snake-cursor";
+  snake.setAttribute("aria-hidden", "true");
+  snake.innerHTML = "<i></i><i></i><i></i><i></i><b></b>";
+  element.replaceChildren(streamText, snake);
+
   if (!response.body?.getReader) {
     const data = await response.json();
-    return data.reply || "";
+    const answer = data.reply || "";
+    renderMarkdown(element, answer);
+    return answer;
   }
+
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "", fullText = "";
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const events = buffer.split("\n\n");
-    buffer = events.pop() || "";
-    for (const event of events) {
-      const line = event.split("\n").find(x => x.startsWith("data:"));
-      if (!line) continue;
-      let packet;
-      try { packet = JSON.parse(line.slice(5).trim()); } catch (_) { continue; }
-      if (packet.error) throw new Error(packet.error);
-      if (packet.text) {
-            fullText += packet.text;
-        renderMarkdown(element, fullText);
-      }
+  const consumeEvent = event => {
+    const data = event.split("\\n")
+      .filter(line => line.startsWith("data:"))
+      .map(line => line.slice(5).trim())
+      .join("\\n");
+    if (!data || data === "[DONE]") return;
+    let packet;
+    try { packet = JSON.parse(data); } catch (_) { return; }
+    if (packet.error) throw new Error(packet.error);
+    if (packet.text) {
+      fullText += packet.text;
+      streamText.textContent = fullText;
+      chat.scrollTop = chat.scrollHeight;
     }
+  };
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.replace(/\\r\\n/g, "\\n").split("\\n\\n");
+      buffer = events.pop() || "";
+      for (const event of events) consumeEvent(event);
+    }
+    buffer += decoder.decode();
+    if (buffer.trim()) consumeEvent(buffer);
+  } finally {
+    reader.releaseLock();
   }
+
+  snake.remove();
+  if (fullText.trim()) renderMarkdown(element, fullText);
   return fullText;
 }
-
 async function checkAIConnection() {
   if (!connection) return;
   connection.textContent = "AI जाँच रहा है…";
