@@ -448,7 +448,7 @@ export default {
       if (current.response?.ok) {
         try { freshReply = extractReply(await current.response.json()); } catch (_) {}
       }
-      if (!freshReply || /मैं यह काम नहीं कर सकता|do not have live web|could not verify.*live/i.test(freshReply) || !/https?:\\/\\//i.test(freshReply)) {
+      if (!freshReply || /मैं यह काम नहीं कर सकता|do not have live web|could not verify.*live/i.test(freshReply) || !/https?:\/\//i.test(freshReply)) {
         freshReply = buildSearchReply(webResults);
       }
       if (url.pathname === "/api/chat/stream") return clockStream(freshReply);
