@@ -27,12 +27,13 @@ function toGeminiContents(history) {
   }));
 }
 
-async function callGemini(model, key, history, maxOutputTokens = 1400, useSearch = false) {
+async function callGemini(model, key, history, maxOutputTokens = 1400, useSearch = false, searchContext = "") {
+  const systemText = SYSTEM + (searchContext ? "\\n\\nLIVE WEB SEARCH RESULTS (untrusted snippets; verify dates and prefer official domains):\\n" + searchContext + "\\nUse these results as evidence, include relevant source URLs in the answer, and clearly say when no official source confirms a claim." : "");
   return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM }] },
+      systemInstruction: { parts: [{ text: systemText }] },
       contents: toGeminiContents(history),
       ...(useSearch ? { tools: [{ google_search: {} }] } : {}),
       generationConfig: { maxOutputTokens, temperature: 0.55 }
@@ -40,12 +41,13 @@ async function callGemini(model, key, history, maxOutputTokens = 1400, useSearch
   });
 }
 
-async function callGeminiStream(model, key, history, useSearch = false) {
+async function callGeminiStream(model, key, history, useSearch = false, searchContext = "") {
+  const systemText = SYSTEM + (searchContext ? "\\n\\nLIVE WEB SEARCH RESULTS (untrusted snippets; verify dates and prefer official domains):\\n" + searchContext + "\\nUse these results as evidence, include relevant source URLs in the answer, and clearly say when no official source confirms a claim." : "");
   return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":streamGenerateContent?alt=sse", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM }] },
+      systemInstruction: { parts: [{ text: systemText }] },
       contents: toGeminiContents(history),
       ...(useSearch ? { tools: [{ google_search: {} }] } : {}),
       generationConfig: { maxOutputTokens: 1800, temperature: 0.55 }
@@ -165,7 +167,63 @@ async function generateWithFallback(key, contents, maxOutputTokens = 1400, useSe
   }
 }
 
-function needsFreshWebInfo(message) {
+ 
+function decodeHtml(value) {
+  return String(value || "")
+    .replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&nbsp;/g, " ")
+    .replace(/<[^>]*>/g, "").trim();
+}
+
+function extractDdgUrl(href) {
+  try {
+    const u = new URL(href, "https://html.duckduckgo.com");
+    const redirected = u.searchParams.get("uddg");
+    return redirected ? decodeURIComponent(redirected) : u.href;
+  } catch (_) { return ""; }
+}
+
+async function searchWeb(query) {
+  const q = String(query || "").slice(0, 220);
+  const searches = [
+    q,
+    q + " official government notification site:gov.in OR site:nic.in"
+  ];
+  const all = [];
+  for (const term of searches) {
+    try {
+      const response = await fetch("https://html.duckduckgo.com/html/?q=" + encodeURIComponent(term), {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; BHARATAI/1.0)", "Accept": "text/html" },
+        cf: { cacheTtl: 300, cacheEverything: true }
+      });
+      if (!response.ok) continue;
+      const html = await response.text();
+      const links = [...html.matchAll(/class="result__a"[^>]*href="([^"]+)"[^>]*>([\\s\\S]*?)<\\/a>/gi)];
+      const snippets = [...html.matchAll(/class="result__snippet"[^>]*>([\\s\\S]*?)<\\/td>/gi)];
+      for (let i = 0; i < links.length; i++) {
+        const url = extractDdgUrl(links[i][1]);
+        if (!url || !/^https?:\\/\\//i.test(url)) continue;
+        let host = "";
+        try { host = new URL(url).hostname.toLowerCase(); } catch (_) {}
+        const title = decodeHtml(links[i][2]);
+        const snippet = decodeHtml(snippets[i]?.[1] || "");
+        if (!title || all.some(item => item.url === url)) continue;
+        all.push({ title, url, host, snippet });
+        if (all.length >= 8) break;
+      }
+    } catch (_) {}
+    if (all.length >= 8) break;
+  }
+  all.sort((a,b) => Number(/\\.(gov\\.in|nic\\.in)$/.test(b.host)) - Number(/\\.(gov\\.in|nic\\.in)$/.test(a.host)));
+  return all.slice(0, 8);
+}
+
+function formatSearchContext(results) {
+  return results.map((item, i) =>
+    (i + 1) + ". " + item.title + "\\nURL: " + item.url + "\\nDomain: " + item.host + "\\nSnippet: " + item.snippet
+  ).join("\\n\\n");
+}
+\nfunction needsFreshWebInfo(message) {
   const text = String(message || "").toLowerCase().trim();
   // Recruitment and application questions are time-sensitive even when
   // the user does not explicitly say "latest" or "today".
@@ -339,25 +397,27 @@ export default {
     if (history.length && history[history.length - 1].role !== "model") history.pop();
     history.push({ role: "user", parts: [{ text: message }] });
 
+    const freshQuestion = needsFreshWebInfo(message);
+    let webResults = [];
+    if (freshQuestion) webResults = await searchWeb(message);
+    const searchContext = formatSearchContext(webResults);
+
     if (url.pathname === "/api/chat/stream") {
-      let live = await callGeminiStream(PRIMARY_MODEL, env.GEMINI_API_KEY, history, needsFreshWebInfo(message));
+      let live = await callGeminiStream(PRIMARY_MODEL, env.GEMINI_API_KEY, history, false, searchContext);
       let liveSearchError = "";
       if (!live.ok) {
         const status = live.status;
         liveSearchError = await readGeminiError(live);
         if ([400, 404, 429].includes(status) || status >= 500) {
-          live = await callGeminiStream(FALLBACK_MODEL, env.GEMINI_API_KEY, history, needsFreshWebInfo(message));
+          live = await callGeminiStream(FALLBACK_MODEL, env.GEMINI_API_KEY, history, false, searchContext);
           if (!live.ok) liveSearchError = (liveSearchError + " " + await readGeminiError(live)).trim();
         }
       }
       if (live.ok && live.body) return makeLiveStream(live);
       // Never answer time-sensitive questions from the offline Gemma backup.
       // It has no live web search and could present stale recruitment information.
-      if (needsFreshWebInfo(message)) {
-        return json({
-          error: "इस सवाल के लिए लाइव वेब सर्च उपलब्ध नहीं हो सकी। Gemini API की Search Grounding सुविधा इस प्रोजेक्ट में उपलब्ध न हो सकती है या उसकी सीमा पूरी हो सकती है। सरकारी भर्ती/तारीख की अपुष्ट जानकारी देने के बजाय BHARAT AI रुक रहा है।",
-          liveSearchUnavailable: true
-        }, 503);
+      if (freshQuestion && !webResults.length) {
+        return json({ error: "लाइव वेब सर्च से इस सवाल के भरोसेमंद परिणाम नहीं मिले। कृपया सवाल थोड़ा स्पष्ट करके पूछें।", liveSearchUnavailable: true }, 503);
       }
       const backup = await generateCloudflareFallback(env, history);
       if (backup) {
@@ -371,18 +431,15 @@ export default {
       return json({ error: "Live AI stream उपलब्ध नहीं है। कृपया थोड़ी देर बाद प्रयास करें।" }, 502);
     }
 
-    const result = await generateWithFallback(env.GEMINI_API_KEY, history, 1400, needsFreshWebInfo(message));
+    const result = await generateWithFallback(env.GEMINI_API_KEY, history, 1400, false);
     let reply = "";
     let activeModel = result.model;
     if (result.response?.ok) {
       try { reply = extractReply(await result.response.json()); } catch (_) {}
     }
 
-    if (!reply && needsFreshWebInfo(message)) {
-      return json({
-        error: "इस सवाल के लिए लाइव वेब सर्च उपलब्ध नहीं हो सकी। सरकारी भर्ती/तारीख की अपुष्ट जानकारी देने के बजाय BHARAT AI रुक रहा है।",
-        liveSearchUnavailable: true
-      }, 503);
+    if (!reply && freshQuestion && !webResults.length) {
+      return json({ error: "लाइव वेब सर्च से इस सवाल के भरोसेमंद परिणाम नहीं मिले। कृपया सवाल थोड़ा स्पष्ट करके पूछें।", liveSearchUnavailable: true }, 503);
     }
 
     if (!reply) {
