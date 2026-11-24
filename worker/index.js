@@ -191,6 +191,30 @@ function isInScope(message, priorHistory = []) {
   return previousTopic && (text.length < 60 || followups.some(term => text.startsWith(term)));
 }
 
+function getIndiaClockReply(message) {
+  const text = String(message || "").toLowerCase();
+  const asksClock = ["time", "clock", "samay", "waqt", "kitne baje", "abhi baje", "current time", "present time", "समय", "वक्त", "कितने बजे", "बज रहे", "घड़ी"];
+  const asksDate = ["date", "tarikh", "tareekh", "dinank", "तारीख", "दिनांक", "आज कौन सा दिन", "आज की तारीख"];
+  const wantsClock = asksClock.some(term => text.includes(term));
+  const wantsDate = asksDate.some(term => text.includes(term));
+  if (!wantsClock && !wantsDate) return "";
+  const now = new Date();
+  const date = new Intl.DateTimeFormat("hi-IN", { timeZone: "Asia/Kolkata", dateStyle: "full" }).format(now);
+  const time = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(now);
+  if (wantsClock && wantsDate) return "भारत में अभी " + date + " है और समय " + time + " IST (भारतीय समय) है।";
+  if (wantsDate) return "भारत में आज " + date + " है।";
+  return "भारत में अभी समय " + time + " IST (भारतीय समय) है।";
+}
+
+function clockStream(reply) {
+  const encoder = new TextEncoder();
+  return new Response(new ReadableStream({ start(controller) {
+    controller.enqueue(encoder.encode(streamPacket({ text: reply })));
+    controller.enqueue(encoder.encode("data: [DONE]\\n\\n"));
+    controller.close();
+  }}), { headers: { ...cors, "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform" } });
+}
+
 function extractReply(payload) {
   return payload?.candidates?.[0]?.content?.parts
     ?.map(part => typeof part.text === "string" ? part.text : "")
@@ -276,6 +300,10 @@ export default {
     catch { return json({ error: "संदेश का डेटा सही नहीं है। दोबारा भेजें।" }, 400); }
 
     const message = typeof body.message === "string" ? body.message.trim().slice(0, 4000) : "";
+    const clockReply = getIndiaClockReply(message);
+    if (clockReply) {
+      return url.pathname === "/api/chat/stream" ? clockStream(clockReply) : json({ reply: clockReply, model: "India local clock" });
+    }
     if (message && !isInScope(message, body.history)) {
       return json({ reply: "मैं यह काम नहीं कर सकता। BHARAT AI केवल पढ़ाई, परीक्षा, भर्ती, दाखिले, छात्रवृत्ति, सरकारी सेवाओं और फॉर्म से जुड़े कामों में मदद करता है।" });
     }
