@@ -127,12 +127,12 @@ async function readGeminiError(response) {
   }
 }
 
-async function generateWithFallback(key, contents, maxOutputTokens = 1400, useSearch = false) {
+async function generateWithFallback(key, contents, maxOutputTokens = 1400, useSearch = false, searchContext = "") {
   let response;
   let model = PRIMARY_MODEL;
   let firstError = "";
   try {
-    response = await callGemini(model, key, contents, maxOutputTokens, useSearch);
+    response = await callGemini(model, key, contents, maxOutputTokens, useSearch, searchContext);
     if (response.ok) return { response, model };
 
     const status = response.status;
@@ -431,7 +431,7 @@ export default {
       return json({ error: "Live AI stream उपलब्ध नहीं है। कृपया थोड़ी देर बाद प्रयास करें।" }, 502);
     }
 
-    const result = await generateWithFallback(env.GEMINI_API_KEY, history, 1400, false);
+    const result = await generateWithFallback(env.GEMINI_API_KEY, history, 1400, false, searchContext);
     let reply = "";
     let activeModel = result.model;
     if (result.response?.ok) {
