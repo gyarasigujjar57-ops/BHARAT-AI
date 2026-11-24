@@ -221,17 +221,17 @@ async function searchWeb(query) {
 }
 
 function buildSearchReply(results) {
-  const official = results.filter(item => /\\.(gov\\.in|nic\\.in)$/i.test(item.host));
+  const official = results.filter(item => /\.(gov\.in|nic\.in)$/i.test(item.host));
   const chosen = (official.length ? official : results).slice(0, 6);
   const lines = chosen.map((item, index) =>
-    (index + 1) + ". " + item.title + "\\n" +
-    (item.snippet ? item.snippet + "\\n" : "") +
+    (index + 1) + ". " + item.title + "\n" +
+    (item.snippet ? item.snippet + "\n" : "") +
     "Source: " + item.url
   );
   const status = official.length
     ? "कुछ सरकारी/आधिकारिक डोमेन मिले हैं। आवेदन खुला है या बंद, यह नोटिफिकेशन पेज पर तारीख देखकर ही पक्का होगा।"
     : "अभी खोज में आधिकारिक gov.in/nic.in भर्ती नोटिस नहीं मिला। नीचे मिले परिणाम केवल शुरुआती सुराग हैं—इनसे आवेदन खुला होने की पुष्टि नहीं होती।";
-  return "ताज़ा वेब खोज के परिणाम:\\n\\n" + lines.join("\\n\\n") + "\\n\\n" + status;
+  return "ताज़ा वेब खोज के परिणाम:\n\n" + lines.join("\n\n") + "\n\n" + status;
 }
 
 function formatSearchContext(results) {
