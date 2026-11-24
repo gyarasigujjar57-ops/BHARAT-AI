@@ -33,6 +33,13 @@ jobs:
           echo "$result" | grep -q '"text"'
           echo "$result" | grep -q '\[DONE\]'
 
+      - name: Inspect search provider response
+        run: |
+          set -euo pipefail
+          curl --silent --show-error --max-time 30 -A "Mozilla/5.0" -w "\\nHTTP_STATUS:%{http_code}\\n" "https://html.duckduckgo.com/html/?q=Rajasthan+12th+pass+government+job+latest+notification" -o /tmp/ddg.html
+          echo "result links: $(grep -o 'result__a' /tmp/ddg.html | wc -l)"
+          grep -Eo 'result__a|anomaly|captcha|challenge' /tmp/ddg.html | head -20 || true
+
       - name: Check independent live web search for recruitment
         run: |
           set -euo pipefail
