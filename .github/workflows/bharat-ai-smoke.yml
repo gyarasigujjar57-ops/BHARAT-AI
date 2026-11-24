@@ -40,6 +40,13 @@ jobs:
           echo "result links: $(grep -o 'result__a' /tmp/ddg.html | wc -l)"
           grep -Eo 'result__a|anomaly|captcha|challenge' /tmp/ddg.html | head -20 || true
 
+      - name: Check Bing RSS search endpoint
+        run: |
+          set -euo pipefail
+          curl --silent --show-error --max-time 30 -A "Mozilla/5.0" -w "\\nHTTP_STATUS:%{http_code}\\n" "https://www.bing.com/search?format=rss&q=Rajasthan+12th+pass+government+job+latest+notification" -o /tmp/bing.xml
+          echo "RSS items: $(grep -o '<item>' /tmp/bing.xml | wc -l)"
+          head -c 500 /tmp/bing.xml
+
       - name: Check independent live web search for recruitment
         run: |
           set -euo pipefail
