@@ -20,30 +20,38 @@ function conversationInput(history) {
   }).join("\n\n");
 }
 
-async function callGeminiStream(model, key, history) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 90000);
-  try {
-    const input = conversationInput(history) +
-      "\n\nIMPORTANT: For current, latest, new, open, or time-sensitive facts, you MUST use the Google Search tool in this request before answering. Prefer official Indian government and recruitment-board websites. Report the date checked. If search results do not confirm the answer, say so clearly.";
-    return await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: JSON.stringify({
-        model,
-        input,
-        system_instruction: SYSTEM,
-        tools: [{ type: "google_search" }],
-        stream: true,
-        store: false
-      }),
-      signal: controller.signal
-    });
-  } finally {
-    clearTimeout(timer);
-  }
+function toGeminiContents(history) {
+  return history.map(item => ({
+    role: item.role === "model" ? "model" : "user",
+    parts: (item.parts || []).map(part => ({ text: String(part.text || "") }))
+  }));
 }
 
+async function callGemini(model, key, history, maxOutputTokens = 1400) {
+  return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM }] },
+      contents: toGeminiContents(history),
+      tools: [{ google_search: {} }],
+      generationConfig: { maxOutputTokens, temperature: 0.55 }
+    })
+  });
+}
+
+async function callGeminiStream(model, key, history) {
+  return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":streamGenerateContent?alt=sse", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM }] },
+      contents: toGeminiContents(history),
+      tools: [{ google_search: {} }],
+      generationConfig: { maxOutputTokens: 1800, temperature: 0.55 }
+    })
+  });
+}
 function streamPacket(data) {
   return "data: " + JSON.stringify(data) + "\n\n";
 }
@@ -60,26 +68,36 @@ function makeLiveStream(upstream) {
           const { value, done } = await reader.read();
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
-          const events = buffer.split("\n\n");
+          const events = buffer.replace(/\\r\\n/g, "\\n").split("\\n\\n");
           buffer = events.pop() || "";
           for (const event of events) {
-            const dataLine = event.split("\n").find(x => x.startsWith("data:"));
-            if (!dataLine) continue;
-            const raw = dataLine.slice(5).trim();
-            if (raw === "[DONE]") continue;
+            const line = event.split("\\n").find(x => x.startsWith("data:"));
+            if (!line) continue;
+            const raw = line.slice(5).trim();
+            if (!raw || raw === "[DONE]") continue;
             try {
               const item = JSON.parse(raw);
-              if (item.event_type === "error" || item.error) {
-                controller.enqueue(encoder.encode(streamPacket({ error: item.error?.message || "Google Search / Gemini से जवाब नहीं मिला।" })));
+              if (item.error) {
+                controller.enqueue(encoder.encode(streamPacket({ error: item.error.message || "Gemini से जवाब नहीं मिला।" })));
                 continue;
               }
-              if (item.event_type === "step.delta" && item.delta?.type === "text" && item.delta.text) {
-                controller.enqueue(encoder.encode(streamPacket({ text: item.delta.text })));
-              }
+              const parts = item.candidates?.[0]?.content?.parts || [];
+              const text = parts.map(part => part.text || "").join("");
+              if (text) controller.enqueue(encoder.encode(streamPacket({ text })));
             } catch (_) {}
           }
         }
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        if (buffer.trim()) {
+          const line = buffer.split("\\n").find(x => x.startsWith("data:"));
+          if (line) {
+            try {
+              const item = JSON.parse(line.slice(5).trim());
+              const text = (item.candidates?.[0]?.content?.parts || []).map(part => part.text || "").join("");
+              if (text) controller.enqueue(encoder.encode(streamPacket({ text })));
+            } catch (_) {}
+          }
+        }
+        controller.enqueue(encoder.encode("data: [DONE]\\n\\n"));
         controller.close();
       } catch (_) {
         controller.enqueue(encoder.encode(streamPacket({ error: "Live जवाब बीच में रुक गया। कृपया दोबारा प्रयास करें।" })));
@@ -98,7 +116,6 @@ function makeLiveStream(upstream) {
     }
   });
 }
-
 async function readGeminiError(response) {
   try {
     const payload = await response.json();
