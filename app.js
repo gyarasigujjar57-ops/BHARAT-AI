@@ -164,7 +164,6 @@ async function ask(question) {
     const liveText = await readLiveReply(response, reply);
     if (!liveText.trim()) throw new Error("AI से खाली जवाब मिला।");
   } catch (error) {
-    hideSnakeScene();
     reply.dataset.failed = "true";
     reply.classList.remove("thinking");
     reply.removeAttribute("aria-label");
@@ -176,7 +175,6 @@ async function ask(question) {
         : "AI जवाब नहीं दे पाया: " + error.message;
     checkAIConnection();
   } finally {
-    hideSnakeScene();
     clearTimeout(timeout);
     send.disabled = false;
     input.disabled = false;
