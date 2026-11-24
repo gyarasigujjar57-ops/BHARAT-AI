@@ -185,12 +185,13 @@ function extractDdgUrl(href) {
 
 async function searchWeb(query) {
   const q = String(query || "").slice(0, 220);
-  const searches = [q, q + " (site:gov.in OR site:nic.in)"];
+  const searches = [q];
   const all = [];
   for (const term of searches) {
     try {
       const response = await fetch("https://www.bing.com/search?format=rss&q=" + encodeURIComponent(term), {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; BHARATAI/1.0)", "Accept": "application/rss+xml, application/xml, text/xml" },
+        signal: AbortSignal.timeout(8000),
         cf: { cacheTtl: 180, cacheEverything: true }
       });
       if (!response.ok) continue;
