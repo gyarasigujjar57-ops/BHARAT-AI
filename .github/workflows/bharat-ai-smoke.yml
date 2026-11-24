@@ -47,6 +47,13 @@ jobs:
           echo "RSS items: $(grep -o '<item>' /tmp/bing.xml | wc -l)"
           head -c 500 /tmp/bing.xml
 
+      - name: Check Worker live search results
+        run: |
+          set -euo pipefail
+          result="$(curl --fail-with-body --silent --show-error --max-time 20 "https://bharat-ai-api.gyarasigujjar57.workers.dev/health?searchtest=1")"
+          echo "$result"
+          echo "$result" | grep -q '"resultCount":[1-9]'
+
       - name: Check independent live web search for recruitment
         run: |
           set -euo pipefail
