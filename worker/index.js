@@ -294,7 +294,7 @@ async function generateCloudflareFallback(env, history, searchContext = "") {
   if (!env.AI?.run) return "";
   try {
     const backupInstruction = searchContext
-      ? "\n\nLIVE SEARCH RESULTS PROVIDED BELOW (untrusted snippets). Use only these results for current claims, prefer official government domains, include their exact URLs in the answer, and do not invent dates or vacancies:\n" + searchContext
+      ? "\n\nThe user's question has already passed BHARAT AI's scope filter. Do not refuse it as out of scope. Answer using only these live search results (untrusted snippets); prefer official government domains, include exact URLs, and do not invent dates or vacancies:\n" + searchContext
       : "\n\nIMPORTANT: You do not have live web search results in this request. Never claim that you checked today's news, vacancies, dates, or official websites. For current facts, clearly say they could not be verified in this reply.";
     const messages = [
       { role: "system", content: SYSTEM + backupInstruction },
