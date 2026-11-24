@@ -4,9 +4,6 @@ const form = document.querySelector("#form");
 const input = document.querySelector("#message");
 const send = document.querySelector("#send");
 const connection = document.querySelector("#connection");
-const snakeScene = document.querySelector("#snake-scene");
-function showSnakeScene() { snakeScene?.classList.add("active"); snakeScene?.setAttribute("aria-hidden", "false"); }
-function hideSnakeScene() { snakeScene?.classList.remove("active"); snakeScene?.setAttribute("aria-hidden", "true"); }
 
 function addMessage(text, role) {
   const wrap = document.createElement("div");
@@ -84,7 +81,6 @@ function renderMarkdown(element, markdown) {
 // Read the real token stream from the backend; no simulated typing.
 async function readLiveReply(response, element) {
   if (!response.body?.getReader) {
-    hideSnakeScene();
     const data = await response.json();
     return data.reply || "";
   }
@@ -104,8 +100,7 @@ async function readLiveReply(response, element) {
       try { packet = JSON.parse(line.slice(5).trim()); } catch (_) { continue; }
       if (packet.error) throw new Error(packet.error);
       if (packet.text) {
-        hideSnakeScene();
-        fullText += packet.text;
+            fullText += packet.text;
         renderMarkdown(element, fullText);
       }
     }
@@ -139,13 +134,12 @@ async function checkAIConnection() {
 
 async function ask(question) {
   hideWelcome();
-  showSnakeScene();
   const history = getHistory();
   addMessage(question, "user");
   const reply = addMessage("", "bot");
   reply.classList.add("thinking");
   reply.setAttribute("aria-label", "BHARAT AI जवाब तैयार कर रहा है");
-  reply.innerHTML = '<span class="snake-loader" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><b></b></span>';
+  reply.innerHTML = '<span class="thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span>';
   reply.dataset.pending = "true";
   send.disabled = true;
   input.disabled = true;
