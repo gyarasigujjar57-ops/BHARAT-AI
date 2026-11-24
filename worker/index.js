@@ -261,8 +261,18 @@ function isInScope(message, priorHistory = []) {
 
 function getIndiaClockReply(message) {
   const text = String(message || "").toLowerCase().trim();
-  const clockTerms = ["time", "clock", "samay", "waqt", "live", "present", "current", "right now", "abhi", "filhaal", "kitne baje", "कितने बजे", "बज रहे", "समय", "वक्त", "अभी", "इस समय", "फिलहाल"];
-  const dateTerms = ["date", "tarikh", "tareekh", "dinank", "today", "aaj ki date", "आज की तारीख", "तारीख", "दिनांक", "आज कौन सा दिन"];
+  // Do not treat a generic "abhi/current/live" in recruitment questions as a clock request.
+  const clockTerms = [
+    "time", "clock", "samay", "waqt", "kitne baje", "what time",
+    "current time", "present time", "live time", "right now time",
+    "abhi kitne baje", "abhi ka time", "abhi ka samay",
+    "समय क्या", "वर्तमान समय", "अभी कितने बजे", "अभी का समय", "कितने बज रहे"
+  ];
+  const dateTerms = [
+    "today's date", "todays date", "date today", "what is the date",
+    "aaj ki date", "tarikh kya hai", "tareekh kya hai", "dinank kya hai",
+    "आज की तारीख", "तारीख क्या है", "दिनांक क्या है", "आज कौन सा दिन"
+  ];
   const wantsClock = clockTerms.some(term => text.includes(term));
   const wantsDate = dateTerms.some(term => text.includes(term));
   if (!wantsClock && !wantsDate) return "";
