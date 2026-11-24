@@ -211,7 +211,7 @@ async function searchWeb(query) {
         let host = "";
         try { host = new URL(url).hostname.toLowerCase(); } catch (_) {}
         const relevance = /recruit|vacan|job|notification|advert|selection|exam|bharti|employment|career|नौकरी|भर्ती|अधिसूचना|विज्ञप्ति|रिक्ति/i.test(title + " " + snippet);
-        const boardDomain = /(^|\\.)((rssb|rsmssb|rpsc)\\.rajasthan\\.gov\\.in|employment\\.rajasthan\\.gov\\.in)$/.test(host);
+        const boardDomain = /(^|\.)(rssb|rsmssb|rpsc)\.rajasthan\.gov\.in$|^employment\.rajasthan\.gov\.in$/.test(host);
         if (!relevance && !boardDomain) continue;
         all.push({ title, url, host, snippet });
         if (all.length - beforeCount >= 6) break;
