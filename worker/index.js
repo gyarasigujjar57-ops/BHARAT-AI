@@ -223,7 +223,7 @@ function formatSearchContext(results) {
     (i + 1) + ". " + item.title + "\nURL: " + item.url + "\nDomain: " + item.host + "\nSnippet: " + item.snippet
   ).join("\n\n");
 }
-\nfunction needsFreshWebInfo(message) {
+function needsFreshWebInfo(message) {
   const text = String(message || "").toLowerCase().trim();
   // Recruitment and application questions are time-sensitive even when
   // the user does not explicitly say "latest" or "today".
