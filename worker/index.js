@@ -243,7 +243,7 @@ function isInScope(message, priorHistory = []) {
   const outOfScope = ["joke","jokes","story","stories","movie","movies","song","songs","music","dating","relationship","cricket score","football score","weather","shopping","recipe","game recommendation","मजाक","चुटकुला","कहानी","फिल्म","गाना","मौसम","खरीदना"];
   if (outOfScope.some(term => text.includes(term))) return false;
   const topics = [
-    ["bharti","bhartiya","bhartiyan","sarkari","naukri","vacanc","recruit","career","job alert","employment","भर्ती","भर्तियां","भर्तियाँ","नौकरी","सरकारी नौकरी","वैकेंसी"],
+    ["bharti","bhartiya","bhartiyan","sarkari","naukri","vacanc","recruit","recruitment","career","job","jobs","government job","govt job","employment","12th pass","10th pass","12वीं पास","दसवीं पास","बारहवीं पास","भर्ती","भर्तियां","भर्तियाँ","नौकरी","सरकारी नौकरी","वैकेंसी"],
     ["padhai","exam","pariksha","paper","admit card","admit-card","result","syllabus","entrance","competitive","question paper","board exam","परीक्षा","एग्जाम","प्रवेश पत्र","रिजल्ट","परिणाम","सिलेबस","पाठ्यक्रम","प्रश्न पत्र","प्रतियोगी"],
     ["form","aavedan","apply","application","registration","dakhila","admission","scholarship","yojana","scheme","certificate","document","dastavez","eligibility","patrata","notification","official website","फॉर्म","आवेदन","रजिस्ट्रेशन","दाखिला","प्रवेश","छात्रवृत्ति","योजना","प्रमाणपत्र","दस्तावेज","पात्रता","अधिसूचना"],
     ["rbse","cbse","upsc","ssc","rrb","railway","army","agniveer","air force","navy","police","cet","neet","jee","cuet","10th","12th","बारहवीं","दसवीं","रेलवे","अग्निवीर","वायुसेना","नेवी","पुलिस","बोर्ड परीक्षा"],
