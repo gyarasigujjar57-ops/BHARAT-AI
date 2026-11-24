@@ -27,27 +27,27 @@ function toGeminiContents(history) {
   }));
 }
 
-async function callGemini(model, key, history, maxOutputTokens = 1400) {
+async function callGemini(model, key, history, maxOutputTokens = 1400, useSearch = false) {
   return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: SYSTEM }] },
       contents: toGeminiContents(history),
-      tools: [{ google_search: {} }],
+      ...(useSearch ? { tools: [{ google_search: {} }] } : {}),
       generationConfig: { maxOutputTokens, temperature: 0.55 }
     })
   });
 }
 
-async function callGeminiStream(model, key, history) {
+async function callGeminiStream(model, key, history, useSearch = false) {
   return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":streamGenerateContent?alt=sse", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: SYSTEM }] },
       contents: toGeminiContents(history),
-      tools: [{ google_search: {} }],
+      ...(useSearch ? { tools: [{ google_search: {} }] } : {}),
       generationConfig: { maxOutputTokens: 1800, temperature: 0.55 }
     })
   });
@@ -125,12 +125,12 @@ async function readGeminiError(response) {
   }
 }
 
-async function generateWithFallback(key, contents, maxOutputTokens = 1400) {
+async function generateWithFallback(key, contents, maxOutputTokens = 1400, useSearch = false) {
   let response;
   let model = PRIMARY_MODEL;
   let firstError = "";
   try {
-    response = await callGemini(model, key, contents, maxOutputTokens);
+    response = await callGemini(model, key, contents, maxOutputTokens, useSearch);
     if (response.ok) return { response, model };
 
     const status = response.status;
@@ -298,12 +298,12 @@ export default {
     history.push({ role: "user", parts: [{ text: message }] });
 
     if (url.pathname === "/api/chat/stream") {
-      let live = await callGeminiStream(PRIMARY_MODEL, env.GEMINI_API_KEY, history);
+      let live = await callGeminiStream(PRIMARY_MODEL, env.GEMINI_API_KEY, history, needsFreshWebInfo(message));
       if (!live.ok) {
         const status = live.status;
         await readGeminiError(live);
         if ([400, 404, 429].includes(status) || status >= 500) {
-          live = await callGeminiStream(FALLBACK_MODEL, env.GEMINI_API_KEY, history);
+          live = await callGeminiStream(FALLBACK_MODEL, env.GEMINI_API_KEY, history, needsFreshWebInfo(message));
         }
       }
       if (live.ok && live.body) return makeLiveStream(live);
@@ -324,7 +324,7 @@ export default {
       return json({ error: "Live AI stream उपलब्ध नहीं है। कृपया थोड़ी देर बाद प्रयास करें।" }, 502);
     }
 
-    const result = await generateWithFallback(env.GEMINI_API_KEY, history);
+    const result = await generateWithFallback(env.GEMINI_API_KEY, history, 1400, needsFreshWebInfo(message));
     let reply = "";
     let activeModel = result.model;
     if (result.response?.ok) {
