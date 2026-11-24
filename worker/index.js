@@ -210,7 +210,7 @@ async function searchWeb(query) {
         if (!title || !/^https?:\/\//i.test(url) || all.some(item => item.url === url)) continue;
         let host = "";
         try { host = new URL(url).hostname.toLowerCase(); } catch (_) {}
-        const relevance = /recruit|vacan|job|notification|advert|selection|exam|bharti|employment|career|नौकरी|भर्ती|अधिसूचना|विज्ञप्ति|रिक्ति/i.test(title + " " + snippet);
+        const relevance = /recruit|vacan|job|advert|selection|exam|bharti|employment|career|नौकरी|भर्ती|विज्ञप्ति|रिक्ति/i.test(title + " " + snippet);
         const boardDomain = /(^|\.)(rssb|rsmssb|rpsc)\.rajasthan\.gov\.in$|^employment\.rajasthan\.gov\.in$/.test(host);
         if (!relevance && !boardDomain) continue;
         all.push({ title, url, host, snippet });
@@ -224,7 +224,10 @@ async function searchWeb(query) {
 }
 
 function buildSearchReply(results) {
-  const official = results.filter(item => /\.(gov\.in|nic\.in)$/i.test(item.host));
+  const official = results.filter(item =>
+    /\.(gov\.in|nic\.in)$/i.test(item.host) &&
+    /recruit|vacan|job|advert|selection|exam|bharti|employment|career|नौकरी|भर्ती|विज्ञप्ति|रिक्ति/i.test(item.title + " " + item.snippet)
+  );
   const chosen = (official.length ? official : results).slice(0, 6);
   const lines = chosen.map((item, index) =>
     (index + 1) + ". " + item.title + "\n" +
