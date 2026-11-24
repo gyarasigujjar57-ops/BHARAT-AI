@@ -185,36 +185,32 @@ function extractDdgUrl(href) {
 
 async function searchWeb(query) {
   const q = String(query || "").slice(0, 220);
-  const searches = [
-    q,
-    q + " official government notification site:gov.in OR site:nic.in"
-  ];
+  const searches = [q, q + " (site:gov.in OR site:nic.in)"];
   const all = [];
   for (const term of searches) {
     try {
-      const response = await fetch("https://html.duckduckgo.com/html/?q=" + encodeURIComponent(term), {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; BHARATAI/1.0)", "Accept": "text/html" },
-        cf: { cacheTtl: 300, cacheEverything: true }
+      const response = await fetch("https://www.bing.com/search?format=rss&q=" + encodeURIComponent(term), {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; BHARATAI/1.0)", "Accept": "application/rss+xml, application/xml, text/xml" },
+        cf: { cacheTtl: 180, cacheEverything: true }
       });
       if (!response.ok) continue;
-      const html = await response.text();
-      const links = [...html.matchAll(/class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
-      const snippets = [...html.matchAll(/class="result__snippet"[^>]*>([\s\S]*?)<\/td>/gi)];
-      for (let i = 0; i < links.length; i++) {
-        const url = extractDdgUrl(links[i][1]);
-        if (!url || !/^https?:\/\//i.test(url)) continue;
+      const xml = await response.text();
+      const items = [...xml.matchAll(/<item>([\\s\\S]*?)<\\/item>/gi)];
+      for (const match of items) {
+        const block = match[1];
+        const title = decodeHtml((block.match(/<title>([\\s\\S]*?)<\\/title>/i) || [])[1] || "");
+        const url = decodeHtml((block.match(/<link>([\\s\\S]*?)<\\/link>/i) || [])[1] || "");
+        const snippet = decodeHtml((block.match(/<description>([\\s\\S]*?)<\\/description>/i) || [])[1] || "");
+        if (!title || !/^https?:\\/\\//i.test(url) || all.some(item => item.url === url)) continue;
         let host = "";
         try { host = new URL(url).hostname.toLowerCase(); } catch (_) {}
-        const title = decodeHtml(links[i][2]);
-        const snippet = decodeHtml(snippets[i]?.[1] || "");
-        if (!title || all.some(item => item.url === url)) continue;
         all.push({ title, url, host, snippet });
         if (all.length >= 8) break;
       }
     } catch (_) {}
     if (all.length >= 8) break;
   }
-  all.sort((a,b) => Number(/\.(gov\.in|nic\.in)$/.test(b.host)) - Number(/\.(gov\.in|nic\.in)$/.test(a.host)));
+  all.sort((a,b) => Number(/\\.(gov\\.in|nic\\.in)$/.test(b.host)) - Number(/\\.(gov\\.in|nic\\.in)$/.test(a.host)));
   return all.slice(0, 8);
 }
 
@@ -401,6 +397,9 @@ export default {
     let webResults = [];
     if (freshQuestion) webResults = await searchWeb(message);
     const searchContext = formatSearchContext(webResults);
+    if (freshQuestion && !webResults.length) {
+      return json({ error: "लाइव वेब सर्च अभी परिणाम नहीं दे रही। अपुष्ट भर्ती या तारीख बताने के बजाय BHARAT AI रुक रहा है।", liveSearchUnavailable: true }, 503);
+    }
 
     if (url.pathname === "/api/chat/stream") {
       let live = await callGeminiStream(PRIMARY_MODEL, env.GEMINI_API_KEY, history, false, searchContext);
