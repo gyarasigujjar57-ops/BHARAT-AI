@@ -99,10 +99,10 @@ async function readLiveReply(response, element) {
   const decoder = new TextDecoder();
   let buffer = "", fullText = "";
   const consumeEvent = event => {
-    const data = event.split("\\n")
+    const data = event.split("\n")
       .filter(line => line.startsWith("data:"))
       .map(line => line.slice(5).trim())
-      .join("\\n");
+      .join("\n");
     if (!data || data === "[DONE]") return;
     let packet;
     try { packet = JSON.parse(data); } catch (_) { return; }
@@ -119,7 +119,7 @@ async function readLiveReply(response, element) {
       const { value, done } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
-      const events = buffer.replace(/\\r\\n/g, "\\n").split("\\n\\n");
+      const events = buffer.replace(/\r\n/g, "\n").split("\n\n");
       buffer = events.pop() || "";
       for (const event of events) consumeEvent(event);
     }
