@@ -347,8 +347,11 @@ function getIndiaClockReply(message) {
   // Do not treat a generic "abhi/current/live" in recruitment questions as a clock request.
   const clockTerms = [
     "time", "clock", "samay", "waqt", "kitne baje", "what time",
-    "current time", "present time", "live time", "right now time",
-    "abhi kitne baje", "abhi ka time", "abhi ka samay",
+    "current time", "present time", "present time now", "time right now",
+    "what is the time now", "what time is it now", "live time", "right now time",
+    "india time now", "time in india", "current time in india", "present time in india",
+    "abhi kitne baje", "abhi ka time", "abhi ka samay", "abhi ka present time",
+    "abhi ka live time", "अभी का लाइव समय", "भारत में अभी कितने बजे", "भारत का वर्तमान समय",
     "समय क्या", "वर्तमान समय", "अभी कितने बजे", "अभी का समय", "कितने बज रहे"
   ];
   const dateTerms = [
