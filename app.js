@@ -139,7 +139,7 @@ async function ask(question) {
   const reply = addMessage("", "bot");
   reply.classList.add("thinking");
   reply.setAttribute("aria-label", "BHARAT AI जवाब तैयार कर रहा है");
-  reply.innerHTML = '<span class="thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span>';
+  reply.innerHTML = '<span class="snake-loader" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><b></b></span>';
   reply.dataset.pending = "true";
   send.disabled = true;
   input.disabled = true;
