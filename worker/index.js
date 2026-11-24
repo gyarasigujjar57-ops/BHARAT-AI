@@ -198,8 +198,8 @@ async function searchWeb(query) {
       });
       if (!response.ok) continue;
       const html = await response.text();
-      const links = [...html.matchAll(/class="result__a"[^>]*href="([^"]+)"[^>]*>([\\s\\S]*?)<\\/a>/gi)];
-      const snippets = [...html.matchAll(/class="result__snippet"[^>]*>([\\s\\S]*?)<\\/td>/gi)];
+      const links = [...html.matchAll(/class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\\/a>/gi)];
+      const snippets = [...html.matchAll(/class="result__snippet"[^>]*>([\s\S]*?)<\\/td>/gi)];
       for (let i = 0; i < links.length; i++) {
         const url = extractDdgUrl(links[i][1]);
         if (!url || !/^https?:\\/\\//i.test(url)) continue;
