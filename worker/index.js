@@ -198,11 +198,11 @@ async function searchWeb(query) {
       });
       if (!response.ok) continue;
       const html = await response.text();
-      const links = [...html.matchAll(/class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\\/a>/gi)];
+      const links = [...html.matchAll(/class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
       const snippets = [...html.matchAll(/class="result__snippet"[^>]*>([\s\S]*?)<\\/td>/gi)];
       for (let i = 0; i < links.length; i++) {
         const url = extractDdgUrl(links[i][1]);
-        if (!url || !/^https?:\\/\\//i.test(url)) continue;
+        if (!url || !/^https?:\/\//i.test(url)) continue;
         let host = "";
         try { host = new URL(url).hostname.toLowerCase(); } catch (_) {}
         const title = decodeHtml(links[i][2]);
@@ -214,14 +214,14 @@ async function searchWeb(query) {
     } catch (_) {}
     if (all.length >= 8) break;
   }
-  all.sort((a,b) => Number(/\\.(gov\\.in|nic\\.in)$/.test(b.host)) - Number(/\\.(gov\\.in|nic\\.in)$/.test(a.host)));
+  all.sort((a,b) => Number(/\.(gov\.in|nic\.in)$/.test(b.host)) - Number(/\.(gov\.in|nic\.in)$/.test(a.host)));
   return all.slice(0, 8);
 }
 
 function formatSearchContext(results) {
   return results.map((item, i) =>
-    (i + 1) + ". " + item.title + "\\nURL: " + item.url + "\\nDomain: " + item.host + "\\nSnippet: " + item.snippet
-  ).join("\\n\\n");
+    (i + 1) + ". " + item.title + "\nURL: " + item.url + "\nDomain: " + item.host + "\nSnippet: " + item.snippet
+  ).join("\n\n");
 }
 \nfunction needsFreshWebInfo(message) {
   const text = String(message || "").toLowerCase().trim();
