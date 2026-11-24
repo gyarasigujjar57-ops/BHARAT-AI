@@ -33,6 +33,17 @@ jobs:
           echo "$result" | grep -q '"text"'
           echo "$result" | grep -q '\[DONE\]'
 
+      - name: Check independent live web search for recruitment
+        run: |
+          set -euo pipefail
+          result="$(curl --fail-with-body --silent --show-error --max-time 90 \
+            -H "Content-Type: application/json" \
+            -X POST "https://bharat-ai-api.gyarasigujjar57.workers.dev/api/chat" \
+            --data '{"message":"Rajasthan 12th pass government job latest notification","history":[]}')"
+          echo "$result"
+          echo "$result" | grep -qi 'https\?://'
+          ! echo "$result" | grep -q '"liveSearchUnavailable":true'
+
       - name: Check live India clock answer
         run: |
           set -euo pipefail
