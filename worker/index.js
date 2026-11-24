@@ -10,7 +10,7 @@ const json = (value, status = 200) => new Response(JSON.stringify(value), {
 
 const PRIMARY_MODEL = "gemini-3.8-flash";
 const FALLBACK_MODEL = "gemini-3.5-flash-lite";
-const SYSTEM = "You are BHARAT AI, India's focused Study, Exam, Recruitment and Government-Form Action Assistant. You are NOT a general-purpose chatbot or entertainment companion.\nSCOPE: Help only with practical education and career administration (school/college/entrance/competitive exams, syllabus, exam notices, admit cards, results, previous papers and exam-related doubts), government/private recruitment information, eligibility, admissions, scholarships, government schemes/services, certificates, required documents, application forms, and step-by-step official application workflows. Do not provide general life coaching, generic \"how should I study\" motivation/planning, casual conversation, jokes, stories, entertainment, coding, shopping, relationship advice, or unrelated general knowledge. For out-of-scope requests, politely reply: \"मैं यह काम नहीं कर सकता। BHARAT AI केवल पढ़ाई, परीक्षा, भर्ती, दाखिले, छात्रवृत्ति, सरकारी सेवाओं और फॉर्म से जुड़े कामों में मदद करता है।\"\n\nLANGUAGE AND VOICE:\nReply in the same language and script the user uses. If they write Hinglish, use natural easy Hinglish; if Hindi, use clean everyday Hindi. Sound warm, alert, confident and human—not robotic, salesy, overexcited or fake-friendly. Understand what the person actually means before answering.\nWRITING STYLE:\nWrite clean, readable paragraphs. Start with the direct answer. Use bullets or numbered steps only when they make information easier to scan. Do not decorate ordinary replies with markdown headings, repeated **bold**, ###, star symbols, emojis, or excessive lists. No \"wow\", \"amazing\", \"great question\" filler. Avoid repeating the question. Explain unfamiliar terms in simple words. Keep simple answers short; give detail when the question needs it.\nACCURACY:\nNever make up facts, dates, recruitment notices, eligibility, fees, salaries, deadlines, links, or current status. Clearly distinguish confirmed facts from estimates and unknowns. If information may have changed, verify it using Google Search grounding before stating it. Prefer official government/department/recruitment-board sources. Give the exact notification date and application deadline when confirmed. If sources disagree, explain the difference. If search does not establish the answer, say you could not verify it—do not present old information as today's update.\nINDIAN RECRUITMENT:\nFor questions about latest/current/new government jobs or recruitments, actively search the web. Use Google Search grounding or the live web search results supplied by BHARAT AI. Check current official notices, not memory alone. Match the user's state, age, education and category only when those details are known; ask one essential missing question rather than guessing. For each confirmed vacancy, explain post, department, qualification, age limit and relaxations, important dates, fee, selection process, salary/pay level, and official application/notification link. State \"as of\" today's date when possible. Clearly label closed, upcoming, and open applications.\nSAFETY AND TRUST:\nNever request Aadhaar/PAN numbers, OTPs, passwords, or bank credentials. The user must personally handle OTP, CAPTCHA, biometrics, payments, declarations and final submission. Never claim to have submitted a form or performed an action unless actually done.\nIDENTITY:\nYou are BHARAT AI. Do not claim a feature, live access, source, or action that was not actually used.";
+const SYSTEM = "You are BHARAT AI, a helpful, accurate, India-aware AI assistant. You can answer general questions as well as help with study, exams, careers, recruitment, government services and forms.\n\nLANGUAGE:\nReply in the same language and script as the user. For Hinglish, use simple natural Hinglish; for Hindi, use clear everyday Hindi. Be direct, useful and respectful.\n\nGENERAL CAPABILITIES:\nAnswer questions across general knowledge, science, technology, history, geography, education, careers, government services, daily practical topics and other safe subjects. Do not refuse merely because a topic is outside government forms or education. If a request is unclear, ask one focused clarification.\n\nLIVE WEB AND GOOGLE SEARCH:\nUse Google Search grounding whenever current, changing, local, factual, or explicitly web-searched information would improve the answer. This includes latest news, current time/date, prices, weather, sports results, new releases, laws, public notices, jobs, admissions, deadlines, product/service status, and requests containing live, real-time, latest, today, now, current, Google, search, or internet. Do not pretend to have searched if Google Search grounding was not used. When search is used, synthesize the actual evidence, give relevant source links/citations, and state the date or time context. Prefer official sources for government, health, legal and financial facts. If sources conflict, explain the difference. If no reliable source confirms a claim, say so plainly. Never invent URLs, citations, dates, results or current status.\n\nACCURACY:\nDistinguish confirmed facts, estimates and uncertainty. Do not present old model knowledge as live information. For time/date in India, use Asia/Kolkata and give IST. Do not confuse a question containing \"abhi/current\" with a clock request unless the user is actually asking the time. If live search fails, say it failed and do not make up a current answer.\n\nRECRUITMENT AND FORMS:\nFor jobs and official forms, prioritize official government/department/recruitment-board sources. State open, closed or upcoming only when the official notice and dates support it. Explain eligibility and required documents without guessing. Never request Aadhaar/PAN numbers, OTPs, passwords or bank credentials. The user personally handles OTP, CAPTCHA, biometrics, payments, declarations and final submission.\n\nSAFETY:\nFollow applicable safety rules. Do not assist with harmful or illegal activity. For sensitive or high-stakes topics, give careful general information and encourage checking qualified or official sources.\n\nSTYLE:\nStart with the direct answer. Use simple language, concise paragraphs and useful lists. Avoid filler, fake confidence and unnecessary headings.\n\nIDENTITY:\nYou are BHARAT AI. Never claim a feature, live search, source or action that was not actually used.";
 
 function conversationInput(history) {
   return history.map(item => {
@@ -155,7 +155,7 @@ async function generateWithFallback(key, contents, maxOutputTokens = 1400, useSe
     const firstFailure = error?.name === "AbortError" ? "timeout" : "network";
     try {
       model = FALLBACK_MODEL;
-      response = await callGemini(model, key, contents, maxOutputTokens, useSearch);
+      response = await callGemini(model, key, contents, maxOutputTokens, useSearch, searchContext);
       return { response, model, error: firstFailure };
     } catch (fallbackError) {
       return {
@@ -185,11 +185,7 @@ function extractDdgUrl(href) {
 
 async function searchWeb(query) {
   const q = String(query || "").slice(0, 220);
-  const searches = [
-    q,
-    "Rajasthan Staff Selection Board RSSB recruitment notification official",
-    "site:rssb.rajasthan.gov.in recruitment notification"
-  ];
+  const searches = [q];
   const all = [];
   for (const term of searches) {
     const beforeCount = all.length;
@@ -210,9 +206,9 @@ async function searchWeb(query) {
         if (!title || !/^https?:\/\//i.test(url) || all.some(item => item.url === url)) continue;
         let host = "";
         try { host = new URL(url).hostname.toLowerCase(); } catch (_) {}
-        const relevance = /recruit|vacan|job|advert|selection|exam|bharti|employment|career|नौकरी|भर्ती|विज्ञप्ति|रिक्ति/i.test(title + " " + snippet);
-        const boardDomain = /(^|\.)(rssb|rsmssb|rpsc)\.rajasthan\.gov\.in$|^employment\.rajasthan\.gov\.in$/.test(host);
-        if (!relevance && !boardDomain) continue;
+        // General-purpose fallback search: keep relevant results for any safe topic.
+        const relevance = title.length > 0 && url.length > 0;
+        if (!relevance) continue;
         all.push({ title, url, host, snippet });
         if (all.length - beforeCount >= 6) break;
       }
@@ -224,20 +220,14 @@ async function searchWeb(query) {
 }
 
 function buildSearchReply(results) {
-  const official = results.filter(item =>
-    /\.(gov\.in|nic\.in)$/i.test(item.host) &&
-    /recruit|vacan|job|advert|selection|exam|bharti|employment|career|नौकरी|भर्ती|विज्ञप्ति|रिक्ति/i.test(item.title + " " + item.snippet)
-  );
-  const chosen = (official.length ? official : results).slice(0, 6);
+  const chosen = results.slice(0, 8);
+  if (!chosen.length) return "";
   const lines = chosen.map((item, index) =>
     (index + 1) + ". " + item.title + "\n" +
     (item.snippet ? item.snippet + "\n" : "") +
-    "Source: " + item.url
+    "स्रोत: " + item.url
   );
-  const status = official.length
-    ? "कुछ सरकारी/आधिकारिक डोमेन मिले हैं। आवेदन खुला है या बंद, यह नोटिफिकेशन पेज पर तारीख देखकर ही पक्का होगा।"
-    : "अभी खोज में आधिकारिक gov.in/nic.in भर्ती नोटिस नहीं मिला। नीचे मिले परिणाम केवल शुरुआती सुराग हैं—इनसे आवेदन खुला होने की पुष्टि नहीं होती।";
-  return "ताज़ा वेब खोज के परिणाम:\n\n" + lines.join("\n\n") + "\n\n" + status;
+  return "मुझे ये ताज़ा वेब परिणाम मिले हैं। नीचे दिए गए स्रोत खोलकर पूरी जानकारी जाँचें:\n\n" + lines.join("\n\n");
 }
 
 function formatSearchContext(results) {
@@ -250,7 +240,7 @@ function needsFreshWebInfo(message) {
   // Recruitment and application questions are time-sensitive even when
   // the user does not explicitly say "latest" or "today".
   const freshTerms = [
-    "latest","today","current","currently","right now","now","new","recent","updated",
+    "latest","today","current","currently","right now","now","new","recent","updated","live","real time","realtime","google","search the web","search online","internet pe","google pe","web pe",
     "open","active","last date","deadline","result","released","notification",
     "vacancy","vacancies","recruitment","recruit","hiring","job","jobs","naukri",
     "bharti","bhartiya","sarkari","government job","govt job","application started",
@@ -319,11 +309,33 @@ function clockStream(reply) {
   }}), { headers: { ...cors, "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform" } });
 }
 
+function extractGroundingSources(payload) {
+  const chunks = payload?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+  const seen = new Set();
+  const sources = [];
+  for (const chunk of chunks) {
+    const web = chunk?.web;
+    if (!web?.uri || seen.has(web.uri)) continue;
+    seen.add(web.uri);
+    sources.push({ title: web.title || web.uri, uri: web.uri });
+  }
+  return sources.slice(0, 8);
+}
+
+function appendGroundingSources(reply, payload) {
+  const sources = extractGroundingSources(payload);
+  if (!sources.length) return reply;
+  return reply + "\n\nस्रोत (Google Search):\n" + sources.map((source, index) =>
+    (index + 1) + ". " + source.title + " — " + source.uri
+  ).join("\n");
+}
+
 function extractReply(payload) {
-  return payload?.candidates?.[0]?.content?.parts
+  const reply = payload?.candidates?.[0]?.content?.parts
     ?.map(part => typeof part.text === "string" ? part.text : "")
     .join("")
     .trim() || "";
+  return appendGroundingSources(reply, payload);
 }
 
 async function generateCloudflareFallback(env, history, searchContext = "") {
@@ -420,9 +432,6 @@ export default {
     if (clockReply) {
       return url.pathname === "/api/chat/stream" ? clockStream(clockReply) : json({ reply: clockReply, model: "India local clock" });
     }
-    if (message && !isInScope(message, body.history)) {
-      return json({ reply: "मैं यह काम नहीं कर सकता। BHARAT AI केवल पढ़ाई, परीक्षा, भर्ती, दाखिले, छात्रवृत्ति, सरकारी सेवाओं और फॉर्म से जुड़े कामों में मदद करता है।" });
-    }
     if (!message) return json({ error: "पहले अपना सवाल लिखें।" }, 400);
     if (!env.GEMINI_API_KEY) {
       return json({ error: "Cloudflare में Gemini API key जुड़ी नहीं है।" }, 503);
@@ -443,32 +452,44 @@ export default {
 
     const freshQuestion = needsFreshWebInfo(message);
     let webResults = [];
-    if (freshQuestion) webResults = await searchWeb(message);
-    const searchContext = formatSearchContext(webResults);
-    if (freshQuestion && !webResults.length) {
-      return json({ error: "लाइव वेब सर्च अभी परिणाम नहीं दे रही। अपुष्ट भर्ती या तारीख बताने के बजाय BHARAT AI रुक रहा है।", liveSearchUnavailable: true }, 503);
-    }
+    const searchContext = "";
     if (freshQuestion) {
-      const current = await generateWithFallback(env.GEMINI_API_KEY, history, 1200, false, searchContext);
+      // Google Search grounding is the primary live-search path. Bing RSS is
+      // only a fallback if Gemini grounding cannot return a sourced answer.
+      const current = await generateWithFallback(env.GEMINI_API_KEY, history, 1600, true, "");
+      let payload = null;
       let freshReply = "";
       if (current.response?.ok) {
-        try { freshReply = extractReply(await current.response.json()); } catch (_) {}
+        try {
+          payload = await current.response.json();
+          freshReply = extractReply(payload);
+        } catch (_) {}
       }
-      if (!freshReply || /मैं यह काम नहीं कर सकता|do not have live web|could not verify.*live/i.test(freshReply) || !/https?:\/\//i.test(freshReply)) {
+      const hasGoogleSources = !!(payload?.candidates?.[0]?.groundingMetadata?.groundingChunks || []).some(chunk => chunk?.web?.uri);
+      if (!freshReply || !hasGoogleSources) {
+        webResults = await searchWeb(message);
         freshReply = buildSearchReply(webResults);
       }
+      if (!freshReply) {
+        const error = current.response ? await readGeminiError(current.response) : current.error;
+        return json({
+          error: "Google की लाइव खोज से भरोसेमंद स्रोत नहीं मिले और वैकल्पिक वेब खोज भी उपलब्ध नहीं है। कृपया थोड़ी देर बाद फिर कोशिश करें।",
+          liveSearchUnavailable: true,
+          detail: error ? String(error).slice(0, 160) : undefined
+        }, 503);
+      }
       if (url.pathname === "/api/chat/stream") return clockStream(freshReply);
-      return json({ reply: freshReply, model: freshReply.startsWith("ताज़ा वेब खोज") ? "Bing RSS live search" : current.model });
+      return json({ reply: freshReply, model: hasGoogleSources ? current.model + " + Google Search" : "Bing RSS fallback" });
     }
 
     if (url.pathname === "/api/chat/stream") {
-      let live = await callGeminiStream(PRIMARY_MODEL, env.GEMINI_API_KEY, history, false, searchContext);
+      let live = await callGeminiStream(PRIMARY_MODEL, env.GEMINI_API_KEY, history, true, searchContext);
       let liveSearchError = "";
       if (!live.ok) {
         const status = live.status;
         liveSearchError = await readGeminiError(live);
         if ([400, 404, 429].includes(status) || status >= 500) {
-          live = await callGeminiStream(FALLBACK_MODEL, env.GEMINI_API_KEY, history, false, searchContext);
+          live = await callGeminiStream(FALLBACK_MODEL, env.GEMINI_API_KEY, history, true, searchContext);
           if (!live.ok) liveSearchError = (liveSearchError + " " + await readGeminiError(live)).trim();
         }
       }
@@ -490,7 +511,7 @@ export default {
       return json({ error: "Live AI stream उपलब्ध नहीं है। कृपया थोड़ी देर बाद प्रयास करें।" }, 502);
     }
 
-    const result = await generateWithFallback(env.GEMINI_API_KEY, history, 1400, false, searchContext);
+    const result = await generateWithFallback(env.GEMINI_API_KEY, history, 1600, true, searchContext);
     let reply = "";
     let activeModel = result.model;
     if (result.response?.ok) {
