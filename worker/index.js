@@ -79,7 +79,8 @@ async function callGemini(model, key, history, maxOutputTokens = 1400, useSearch
       contents: toGeminiContents(history),
       ...(useSearch ? { tools: [{ googleSearch: {} }] } : {}),
       generationConfig: { maxOutputTokens, temperature: 0.55 }
-    })
+    }),
+    signal: AbortSignal.timeout(45000)
   });
 }
 
@@ -93,7 +94,8 @@ async function callGeminiStream(model, key, history, useSearch = false, searchCo
       contents: toGeminiContents(history),
       ...(useSearch ? { tools: [{ googleSearch: {} }] } : {}),
       generationConfig: { maxOutputTokens: 1800, temperature: 0.55 }
-    })
+    }),
+    signal: AbortSignal.timeout(45000)
   });
 }
 function streamPacket(data) {
@@ -305,7 +307,7 @@ function needsFreshWebInfo(message) {
   // Recruitment and application questions are time-sensitive even when
   // the user does not explicitly say "latest" or "today".
   const freshTerms = [
-    "latest","today","current","currently","right now","now","new","recent","updated","live","real time","realtime","google","search the web","search online","internet pe","google pe","web pe","news","headline","weather","forecast","temperature","cricket score","football score","match result","sports score","share price","stock price","exchange rate","price today","aaj ka mausam","mausam","taapmaan","ताज़ा खबर","ताजा खबर","समाचार","मौसम","मौसम का हाल","तापमान","मैच का स्कोर","आज का स्कोर","शेयर भाव","आज का भाव",
+    "latest","today","current","currently","right now","now","new","recent","updated","live","real time","realtime","google","search the web","search online","internet pe","google pe","web pe","news","headline","weather","forecast","temperature","cricket score","football score","match result","sports score","share price","stock price","exchange rate","price today","current price","price","cost","rate","keemat","daam","कीमत","भाव","दाम","aaj ka mausam","mausam","taapmaan","ताज़ा खबर","ताजा खबर","समाचार","मौसम","मौसम का हाल","तापमान","मैच का स्कोर","आज का स्कोर","शेयर भाव","आज का भाव",
     "open","active","last date","deadline","result","released","notification",
     "vacancy","vacancies","recruitment","recruit","hiring","job","jobs","naukri",
     "bharti","bhartiya","sarkari","government job","govt job","application started",
@@ -569,13 +571,13 @@ export default {
     }
 
     if (url.pathname === "/api/chat/stream") {
-      let live = await callGeminiStream(PRIMARY_MODEL, env.GEMINI_API_KEY, history, true, searchContext);
+      let live = await callGeminiStream(PRIMARY_MODEL, env.GEMINI_API_KEY, history, false, searchContext);
       let liveSearchError = "";
       if (!live.ok) {
         const status = live.status;
         liveSearchError = await readGeminiError(live);
         if ([400, 404, 429].includes(status) || status >= 500) {
-          live = await callGeminiStream(FALLBACK_MODEL, env.GEMINI_API_KEY, history, true, searchContext);
+          live = await callGeminiStream(FALLBACK_MODEL, env.GEMINI_API_KEY, history, false, searchContext);
           if (!live.ok) liveSearchError = (liveSearchError + " " + await readGeminiError(live)).trim();
         }
       }
@@ -597,7 +599,7 @@ export default {
       return json({ error: "Live AI stream उपलब्ध नहीं है। कृपया थोड़ी देर बाद प्रयास करें।" }, 502);
     }
 
-    const result = await generateWithFallback(env.GEMINI_API_KEY, history, 1600, true, searchContext);
+    const result = await generateWithFallback(env.GEMINI_API_KEY, history, 1600, false, searchContext);
     let reply = "";
     let activeModel = result.model;
     if (result.response?.ok) {
