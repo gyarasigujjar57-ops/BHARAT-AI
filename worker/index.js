@@ -340,6 +340,15 @@ export default {
     }
 
     if (url.pathname === "/health" && request.method === "GET") {
+      if (url.searchParams.get("searchtest") === "1") {
+        const results = await searchWeb("Rajasthan 12th pass government job latest notification");
+        return json({
+          ok: true,
+          searchProvider: "Bing RSS",
+          resultCount: results.length,
+          results: results.map(item => ({ title: item.title, url: item.url, domain: item.host }))
+        });
+      }
       if (!env.GEMINI_API_KEY) {
         return json({ ok: false, aiKeyConfigured: false, error: "Cloudflare में Gemini API key जुड़ी नहीं है।" }, 503);
       }
