@@ -187,8 +187,8 @@ async function searchWeb(query) {
   const q = String(query || "").slice(0, 220);
   const searches = [
     q,
-    "site:rssb.rajasthan.gov.in 12th level recruitment notification",
-    "site:rajasthan.gov.in recruitment vacancy notification 12th pass"
+    "Rajasthan Staff Selection Board RSSB recruitment notification official",
+    "site:rssb.rajasthan.gov.in recruitment notification"
   ];
   const all = [];
   for (const term of searches) {
@@ -210,6 +210,9 @@ async function searchWeb(query) {
         if (!title || !/^https?:\/\//i.test(url) || all.some(item => item.url === url)) continue;
         let host = "";
         try { host = new URL(url).hostname.toLowerCase(); } catch (_) {}
+        const relevance = /recruit|vacan|job|notification|advert|selection|exam|bharti|employment|career|नौकरी|भर्ती|अधिसूचना|विज्ञप्ति|रिक्ति/i.test(title + " " + snippet);
+        const boardDomain = /(^|\\.)((rssb|rsmssb|rpsc)\\.rajasthan\\.gov\\.in|employment\\.rajasthan\\.gov\\.in)$/.test(host);
+        if (!relevance && !boardDomain) continue;
         all.push({ title, url, host, snippet });
         if (all.length - beforeCount >= 6) break;
       }
