@@ -68,10 +68,10 @@ function makeLiveStream(upstream) {
           const { value, done } = await reader.read();
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
-          const events = buffer.replace(/\\r\\n/g, "\\n").split("\\n\\n");
+          const events = buffer.replace(/\r\n/g, "\n").split("\n\n");
           buffer = events.pop() || "";
           for (const event of events) {
-            const line = event.split("\\n").find(x => x.startsWith("data:"));
+            const line = event.split("\n").find(x => x.startsWith("data:"));
             if (!line) continue;
             const raw = line.slice(5).trim();
             if (!raw || raw === "[DONE]") continue;
@@ -88,7 +88,7 @@ function makeLiveStream(upstream) {
           }
         }
         if (buffer.trim()) {
-          const line = buffer.split("\\n").find(x => x.startsWith("data:"));
+          const line = buffer.split("\n").find(x => x.startsWith("data:"));
           if (line) {
             try {
               const item = JSON.parse(line.slice(5).trim());
@@ -97,7 +97,7 @@ function makeLiveStream(upstream) {
             } catch (_) {}
           }
         }
-        controller.enqueue(encoder.encode("data: [DONE]\\n\\n"));
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
       } catch (_) {
         controller.enqueue(encoder.encode(streamPacket({ error: "Live जवाब बीच में रुक गया। कृपया दोबारा प्रयास करें।" })));
@@ -317,7 +317,7 @@ export default {
         const encoder = new TextEncoder();
         return new Response(new ReadableStream({ start(controller) {
           controller.enqueue(encoder.encode(streamPacket({ text: backup })));
-          controller.enqueue(encoder.encode("data: [DONE]\\n\\n"));
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
         }}), { headers: { ...cors, "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform" } });
       }
