@@ -192,17 +192,35 @@ function isInScope(message, priorHistory = []) {
 }
 
 function getIndiaClockReply(message) {
-  const text = String(message || "").toLowerCase();
-  const asksClock = ["time", "clock", "samay", "waqt", "kitne baje", "abhi baje", "current time", "present time", "समय", "वक्त", "कितने बजे", "बज रहे", "घड़ी"];
-  const asksDate = ["date", "tarikh", "tareekh", "dinank", "तारीख", "दिनांक", "आज कौन सा दिन", "आज की तारीख"];
-  const wantsClock = asksClock.some(term => text.includes(term));
-  const wantsDate = asksDate.some(term => text.includes(term));
-  if (!wantsClock && !wantsDate) return "";
+  const text = String(message || "").toLowerCase().trim();
+  // Match natural Hindi, Hinglish and English ways people ask for the
+  // current Indian time. This route is deterministic and never calls Gemini.
+  const asksClock =
+    /\\b(time|clock|samay|waqt|live|present|current|right now|abhi|filhaal)\\b/.test(text) ||
+    ["कितने बजे", "बज रहे", "समय", "वक्त", "अभी", "इस समय", "फिलहाल"].some(term => text.includes(term));
+  const asksDate =
+    /\\b(date|tarikh|tareekh|dinank|today|aaj)\\b/.test(text) ||
+    ["तारीख", "दिनांक", "आज कौन सा दिन", "आज की तारीख", "आज"].some(term => text.includes(term));
+  // Do not hijack unrelated questions that happen to mention "today".
+  const timeIntent = asksClock && (
+    /\\b(time|clock|samay|waqt|live|present|current|right now)\\b/.test(text) ||
+    ["कितने बजे", "बज रहे", "समय", "वक्त", "अभी", "इस समय"].some(term => text.includes(term))
+  );
+  const dateIntent = asksDate && (
+    /\\b(date|tarikh|tareekh|dinank|today|aaj)\\b/.test(text) ||
+    ["तारीख", "दिनांक", "आज कौन सा दिन", "आज की तारीख"].some(term => text.includes(term))
+  );
+  if (!timeIntent && !dateIntent) return "";
   const now = new Date();
-  const date = new Intl.DateTimeFormat("hi-IN", { timeZone: "Asia/Kolkata", dateStyle: "full" }).format(now);
-  const time = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(now);
-  if (wantsClock && wantsDate) return "भारत में अभी " + date + " है और समय " + time + " IST (भारतीय समय) है।";
-  if (wantsDate) return "भारत में आज " + date + " है।";
+  const date = new Intl.DateTimeFormat("hi-IN", {
+    timeZone: "Asia/Kolkata", dateStyle: "full"
+  }).format(now);
+  const time = new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit",
+    second: "2-digit", hourCycle: "h23"
+  }).format(now);
+  if (timeIntent && dateIntent) return "भारत में अभी " + date + " है और समय " + time + " IST (भारतीय समय) है।";
+  if (dateIntent) return "भारत में आज " + date + " है।";
   return "भारत में अभी समय " + time + " IST (भारतीय समय) है।";
 }
 
