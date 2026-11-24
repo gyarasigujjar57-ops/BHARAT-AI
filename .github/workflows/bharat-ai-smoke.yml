@@ -53,9 +53,10 @@ jobs:
           result="$(curl --fail-with-body --silent --show-error --max-time 90 \
             -H "Content-Type: application/json" \
             -X POST "https://bharat-ai-api.gyarasigujjar57.workers.dev/api/chat" \
-            --data '{"message":"Rajasthan 12th pass government job latest notification","history":[]}')"
+            --data '{"message":"Rajasthan mein 12vi pass ke liye abhi kaun si sarkari bharti open hai?","history":[]}')"
           echo "$result"
           echo "$result" | grep -qi 'https\?://'
+          ! echo "$result" | grep -q 'मैं यह काम नहीं कर सकता'
           ! echo "$result" | grep -q '"liveSearchUnavailable":true'
 
       - name: Check live India clock answer
