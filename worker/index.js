@@ -290,11 +290,14 @@ function extractReply(payload) {
     .trim() || "";
 }
 
-async function generateCloudflareFallback(env, history) {
+async function generateCloudflareFallback(env, history, searchContext = "") {
   if (!env.AI?.run) return "";
   try {
+    const backupInstruction = searchContext
+      ? "\n\nLIVE SEARCH RESULTS PROVIDED BELOW (untrusted snippets). Use only these results for current claims, prefer official government domains, include their exact URLs in the answer, and do not invent dates or vacancies:\n" + searchContext
+      : "\n\nIMPORTANT: You do not have live web search results in this request. Never claim that you checked today's news, vacancies, dates, or official websites. For current facts, clearly say they could not be verified in this reply.";
     const messages = [
-      { role: "system", content: SYSTEM + "\n\nIMPORTANT: This is the backup model. You do not have live web search in this request. Never claim that you checked today's news, vacancies, dates, or official websites. For current facts, clearly say they could not be verified in this reply." },
+      { role: "system", content: SYSTEM + backupInstruction },
       ...history.map(item => ({
         role: item.role === "model" ? "assistant" : "user",
         content: item.parts.map(part => part.text).join("\n")
@@ -418,7 +421,7 @@ export default {
       if (freshQuestion && !webResults.length) {
         return json({ error: "लाइव वेब सर्च से इस सवाल के भरोसेमंद परिणाम नहीं मिले। कृपया सवाल थोड़ा स्पष्ट करके पूछें।", liveSearchUnavailable: true }, 503);
       }
-      const backup = await generateCloudflareFallback(env, history);
+      const backup = await generateCloudflareFallback(env, history, searchContext);
       if (backup) {
         const encoder = new TextEncoder();
         return new Response(new ReadableStream({ start(controller) {
@@ -442,7 +445,7 @@ export default {
     }
 
     if (!reply) {
-      reply = await generateCloudflareFallback(env, history);
+      reply = await generateCloudflareFallback(env, history, searchContext);
       if (reply) activeModel = "Cloudflare Workers AI (Gemma 4 backup)";
     }
 
