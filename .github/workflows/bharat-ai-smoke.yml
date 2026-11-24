@@ -32,3 +32,14 @@ jobs:
           echo "$result"
           echo "$result" | grep -q '"text"'
           echo "$result" | grep -q '\[DONE\]'
+
+      - name: Check live India clock answer
+        run: |
+          set -euo pipefail
+          result="$(curl --fail-with-body --silent --show-error --no-buffer --max-time 30 \
+            -H "Content-Type: application/json" \
+            -X POST "https://bharat-ai-api.gyarasigujjar57.workers.dev/api/chat/stream" \
+            --data '{"message":"भारत में अभी वर्तमान समय क्या है?","history":[],"language":"hi"}')"
+          echo "$result"
+          echo "$result" | grep -q 'भारत में अभी'
+          echo "$result" | grep -q '\[DONE\]'
