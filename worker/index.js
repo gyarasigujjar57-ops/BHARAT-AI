@@ -65,6 +65,25 @@ function makeLiveStream(upstream) {
       const reader = upstream.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      const seenSources = new Set();
+      const sources = [];
+      const consume = item => {
+        if (item.error) {
+          controller.enqueue(encoder.encode(streamPacket({ error: item.error.message || "Gemini से जवाब नहीं मिला।" })));
+          return;
+        }
+        const candidate = item.candidates?.[0];
+        const parts = candidate?.content?.parts || [];
+        const text = parts.map(part => part.text || "").join("");
+        if (text) controller.enqueue(encoder.encode(streamPacket({ text })));
+        const chunks = candidate?.groundingMetadata?.groundingChunks || [];
+        for (const chunk of chunks) {
+          const web = chunk?.web;
+          if (!web?.uri || seenSources.has(web.uri)) continue;
+          seenSources.add(web.uri);
+          sources.push({ title: web.title || web.uri, uri: web.uri });
+        }
+      };
       try {
         while (true) {
           const { value, done } = await reader.read();
@@ -77,27 +96,20 @@ function makeLiveStream(upstream) {
             if (!line) continue;
             const raw = line.slice(5).trim();
             if (!raw || raw === "[DONE]") continue;
-            try {
-              const item = JSON.parse(raw);
-              if (item.error) {
-                controller.enqueue(encoder.encode(streamPacket({ error: item.error.message || "Gemini से जवाब नहीं मिला।" })));
-                continue;
-              }
-              const parts = item.candidates?.[0]?.content?.parts || [];
-              const text = parts.map(part => part.text || "").join("");
-              if (text) controller.enqueue(encoder.encode(streamPacket({ text })));
-            } catch (_) {}
+            try { consume(JSON.parse(raw)); } catch (_) {}
           }
         }
+        buffer += decoder.decode();
         if (buffer.trim()) {
           const line = buffer.split("\n").find(x => x.startsWith("data:"));
           if (line) {
-            try {
-              const item = JSON.parse(line.slice(5).trim());
-              const text = (item.candidates?.[0]?.content?.parts || []).map(part => part.text || "").join("");
-              if (text) controller.enqueue(encoder.encode(streamPacket({ text })));
-            } catch (_) {}
+            try { consume(JSON.parse(line.slice(5).trim())); } catch (_) {}
           }
+        }
+        if (sources.length) {
+          const sourceText = "\n\nस्रोत (Google Search):\n" + sources.slice(0, 8)
+            .map((source, index) => (index + 1) + ". " + source.title + " — " + source.uri).join("\n");
+          controller.enqueue(encoder.encode(streamPacket({ text: sourceText })));
         }
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
