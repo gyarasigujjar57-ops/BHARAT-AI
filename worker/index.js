@@ -28,7 +28,7 @@ function toGeminiContents(history) {
 }
 
 async function callGemini(model, key, history, maxOutputTokens = 1400, useSearch = false, searchContext = "") {
-  const systemText = SYSTEM + (searchContext ? "\n\nThe user's question has already passed BHARAT AI's scope filter and is an in-scope education/recruitment/government-service request. Do not refuse it as out of scope. Answer using the supplied search evidence.\n\nLIVE WEB SEARCH RESULTS (untrusted snippets; verify dates and prefer official domains):\n" + searchContext + "\nUse these results as evidence, include relevant source URLs in the answer, and clearly say when no official source confirms a claim." : "");
+  const systemText = SYSTEM + (searchContext ? "\n\nThe user's question has already passed BHARAT AI's scope filter and is an in-scope education/recruitment/government-service request. Do not refuse it as out of scope. Answer using the supplied search evidence.\n\nLIVE WEB SEARCH RESULTS (untrusted snippets; verify dates and prefer official domains):\n" + searchContext + "\nUse these results as evidence, include relevant source URLs in the answer. If only job aggregators appear and no official government notice confirms an open application, explicitly say the open/closed status is unverified and direct the user to the official recruitment board rather than guessing." : "");
   return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
@@ -185,7 +185,11 @@ function extractDdgUrl(href) {
 
 async function searchWeb(query) {
   const q = String(query || "").slice(0, 220);
-  const searches = [q, "site:gov.in OR site:nic.in " + q];
+  const searches = [
+    q,
+    "site:rssb.rajasthan.gov.in 12th level recruitment notification",
+    "site:rajasthan.gov.in recruitment vacancy notification 12th pass"
+  ];
   const all = [];
   for (const term of searches) {
     const beforeCount = all.length;
