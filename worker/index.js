@@ -195,13 +195,13 @@ async function searchWeb(query) {
       });
       if (!response.ok) continue;
       const xml = await response.text();
-      const items = [...xml.matchAll(/<item>([\\s\\S]*?)<\\/item>/gi)];
+      const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)];
       for (const match of items) {
         const block = match[1];
-        const title = decodeHtml((block.match(/<title>([\\s\\S]*?)<\\/title>/i) || [])[1] || "");
-        const url = decodeHtml((block.match(/<link>([\\s\\S]*?)<\\/link>/i) || [])[1] || "");
-        const snippet = decodeHtml((block.match(/<description>([\\s\\S]*?)<\\/description>/i) || [])[1] || "");
-        if (!title || !/^https?:\\/\\//i.test(url) || all.some(item => item.url === url)) continue;
+        const title = decodeHtml((block.match(/<title>([\s\S]*?)<\/title>/i) || [])[1] || "");
+        const url = decodeHtml((block.match(/<link>([\s\S]*?)<\/link>/i) || [])[1] || "");
+        const snippet = decodeHtml((block.match(/<description>([\s\S]*?)<\/description>/i) || [])[1] || "");
+        if (!title || !/^https?:\/\//i.test(url) || all.some(item => item.url === url)) continue;
         let host = "";
         try { host = new URL(url).hostname.toLowerCase(); } catch (_) {}
         all.push({ title, url, host, snippet });
@@ -210,7 +210,7 @@ async function searchWeb(query) {
     } catch (_) {}
     if (all.length >= 8) break;
   }
-  all.sort((a,b) => Number(/\\.(gov\\.in|nic\\.in)$/.test(b.host)) - Number(/\\.(gov\\.in|nic\\.in)$/.test(a.host)));
+  all.sort((a,b) => Number(/\.(gov\.in|nic\.in)$/.test(b.host)) - Number(/\.(gov\.in|nic\.in)$/.test(a.host)));
   return all.slice(0, 8);
 }
 
