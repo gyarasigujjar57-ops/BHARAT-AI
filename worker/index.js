@@ -220,6 +220,20 @@ async function searchWeb(query) {
   return all.slice(0, 12);
 }
 
+function buildSearchReply(results) {
+  const official = results.filter(item => /\\.(gov\\.in|nic\\.in)$/i.test(item.host));
+  const chosen = (official.length ? official : results).slice(0, 6);
+  const lines = chosen.map((item, index) =>
+    (index + 1) + ". " + item.title + "\\n" +
+    (item.snippet ? item.snippet + "\\n" : "") +
+    "Source: " + item.url
+  );
+  const status = official.length
+    ? "कुछ सरकारी/आधिकारिक डोमेन मिले हैं। आवेदन खुला है या बंद, यह नोटिफिकेशन पेज पर तारीख देखकर ही पक्का होगा।"
+    : "अभी खोज में आधिकारिक gov.in/nic.in भर्ती नोटिस नहीं मिला। नीचे मिले परिणाम केवल शुरुआती सुराग हैं—इनसे आवेदन खुला होने की पुष्टि नहीं होती।";
+  return "ताज़ा वेब खोज के परिणाम:\\n\\n" + lines.join("\\n\\n") + "\\n\\n" + status;
+}
+
 function formatSearchContext(results) {
   return results.map((item, i) =>
     (i + 1) + ". " + item.title + "\nURL: " + item.url + "\nDomain: " + item.host + "\nSnippet: " + item.snippet
@@ -427,6 +441,18 @@ export default {
     const searchContext = formatSearchContext(webResults);
     if (freshQuestion && !webResults.length) {
       return json({ error: "लाइव वेब सर्च अभी परिणाम नहीं दे रही। अपुष्ट भर्ती या तारीख बताने के बजाय BHARAT AI रुक रहा है।", liveSearchUnavailable: true }, 503);
+    }
+    if (freshQuestion) {
+      const current = await generateWithFallback(env.GEMINI_API_KEY, history, 1200, false, searchContext);
+      let freshReply = "";
+      if (current.response?.ok) {
+        try { freshReply = extractReply(await current.response.json()); } catch (_) {}
+      }
+      if (!freshReply || /मैं यह काम नहीं कर सकता|do not have live web|could not verify.*live/i.test(freshReply) || !/https?:\\/\\//i.test(freshReply)) {
+        freshReply = buildSearchReply(webResults);
+      }
+      if (url.pathname === "/api/chat/stream") return clockStream(freshReply);
+      return json({ reply: freshReply, model: freshReply.startsWith("ताज़ा वेब खोज") ? "Bing RSS live search" : current.model });
     }
 
     if (url.pathname === "/api/chat/stream") {
