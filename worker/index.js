@@ -20,6 +20,48 @@ function conversationInput(history) {
   }).join("\n\n");
 }
 
+async function callGeminiInteractionsSearch(key, history) {
+  const prompt = "You are BHARAT AI. Answer in the user's language. This is a request for current information: search the live web before answering, use reliable and preferably official sources, explain the findings clearly, and do not invent facts. Include source citations.\n\nConversation:\n" + conversationInput(history);
+  return fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+    body: JSON.stringify({
+      model: PRIMARY_MODEL,
+      input: prompt,
+      tools: [{ type: "google_search" }]
+    }),
+    signal: AbortSignal.timeout(45000)
+  });
+}
+
+function extractInteractionReply(payload) {
+  let reply = typeof payload?.output_text === "string" ? payload.output_text.trim() : "";
+  const sources = [];
+  const seen = new Set();
+  for (const step of payload?.steps || []) {
+    if (step?.type !== "model_output") continue;
+    for (const block of step.content || []) {
+      if (!reply && block?.type === "text" && typeof block.text === "string") reply += block.text;
+      for (const annotation of block?.annotations || []) {
+        if (annotation?.type !== "url_citation" || !annotation.url || seen.has(annotation.url)) continue;
+        seen.add(annotation.url);
+        sources.push({ title: annotation.title || annotation.url, uri: annotation.url });
+      }
+    }
+  }
+  if (!reply) {
+    reply = (payload?.steps || []).filter(step => step?.type === "model_output")
+      .flatMap(step => step.content || [])
+      .filter(block => block?.type === "text")
+      .map(block => block.text || "").join("\n").trim();
+  }
+  if (sources.length) {
+    reply += "\n\nस्रोत (Google Search):\n" + sources.slice(0, 8)
+      .map((source, index) => (index + 1) + ". " + source.title + " — " + source.uri).join("\n");
+  }
+  return { reply, sourceCount: sources.length };
+}
+
 function toGeminiContents(history) {
   return history.map(item => ({
     role: item.role === "model" ? "model" : "user",
@@ -196,8 +238,11 @@ function extractDdgUrl(href) {
 }
 
 async function searchWeb(query) {
-  const q = String(query || "").slice(0, 220);
-  const searches = [q];
+  const q = String(query || "")
+    .replace(/(?:google|web|internet)\\s*(?:par|pe|में|पर)\\s*(?:search|khoj|खोज|देख|dekh)?/gi, " ")
+    .replace(/(?:search|खोजकर|खोजो|देखकर|dekhkar)\\s*(?:karke|करके)?/gi, " ")
+    .replace(/\\s+/g, " ").trim().slice(0, 220);
+  const searches = [q || String(query || "").slice(0, 220)];
   const all = [];
   for (const term of searches) {
     const beforeCount = all.length;
@@ -246,6 +291,14 @@ function formatSearchContext(results) {
   return results.map((item, i) =>
     (i + 1) + ". " + item.title + "\nURL: " + item.url + "\nDomain: " + item.host + "\nSnippet: " + item.snippet
   ).join("\n\n");
+}
+
+function appendSearchResultSources(reply, results) {
+  if (!reply || !results?.length) return reply;
+  const sources = results.slice(0, 8).map((item, index) =>
+    (index + 1) + ". " + item.title + " — " + item.url
+  ).join("\n");
+  return reply + "\n\nस्रोत (वेब खोज):\n" + sources;
 }
 function needsFreshWebInfo(message) {
   const text = String(message || "").toLowerCase().trim();
@@ -466,32 +519,41 @@ export default {
     let webResults = [];
     const searchContext = "";
     if (freshQuestion) {
-      // Google Search grounding is the primary live-search path. Bing RSS is
-      // only a fallback if Gemini grounding cannot return a sourced answer.
-      const current = await generateWithFallback(env.GEMINI_API_KEY, history, 1600, true, "");
-      let payload = null;
-      let freshReply = "";
-      if (current.response?.ok) {
+      // Use the current Gemini Interactions API with its native Google Search tool.
+      const liveSearch = await callGeminiInteractionsSearch(env.GEMINI_API_KEY, history);
+      let livePayload = null;
+      let parsed = { reply: "", sourceCount: 0 };
+      if (liveSearch.ok) {
         try {
-          payload = await current.response.json();
-          freshReply = extractReply(payload);
+          livePayload = await liveSearch.json();
+          parsed = extractInteractionReply(livePayload);
         } catch (_) {}
       }
-      const hasGoogleSources = !!(payload?.candidates?.[0]?.groundingMetadata?.groundingChunks || []).some(chunk => chunk?.web?.uri);
-      if (!freshReply || !hasGoogleSources) {
+      let freshReply = parsed.reply;
+      let sourceCount = parsed.sourceCount;
+      if (!freshReply || sourceCount === 0) {
+        // Search fallback only; clean command words so the actual subject is searched.
         webResults = await searchWeb(message);
-        freshReply = buildSearchReply(webResults);
+        if (webResults.length) {
+          const evidence = formatSearchContext(webResults);
+          const summarized = await generateWithFallback(env.GEMINI_API_KEY, history, 1500, false, evidence);
+          if (summarized.response?.ok) {
+            try {
+              const summaryPayload = await summarized.response.json();
+              freshReply = appendSearchResultSources(extractReply(summaryPayload), webResults);
+            } catch (_) {}
+          }
+          if (!freshReply) freshReply = buildSearchReply(webResults);
+        }
       }
       if (!freshReply) {
-        const error = current.response ? await readGeminiError(current.response) : current.error;
         return json({
           error: "Google की लाइव खोज से भरोसेमंद स्रोत नहीं मिले और वैकल्पिक वेब खोज भी उपलब्ध नहीं है। कृपया थोड़ी देर बाद फिर कोशिश करें।",
-          liveSearchUnavailable: true,
-          detail: error ? String(error).slice(0, 160) : undefined
+          liveSearchUnavailable: true
         }, 503);
       }
       if (url.pathname === "/api/chat/stream") return clockStream(freshReply);
-      return json({ reply: freshReply, model: hasGoogleSources ? current.model + " + Google Search" : "Bing RSS fallback" });
+      return json({ reply: freshReply, model: sourceCount > 0 ? PRIMARY_MODEL + " + Google Search" : "Bing RSS fallback" });
     }
 
     if (url.pathname === "/api/chat/stream") {
