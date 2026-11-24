@@ -1,0 +1,34 @@
+name: BHARAT AI live smoke test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "worker/index.js"
+      - "app.js"
+      - "styles.css"
+      - ".github/workflows/bharat-ai-smoke.yml"
+
+jobs:
+  live-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check Gemini connection
+        run: |
+          set -euo pipefail
+          result="$(curl --fail-with-body --silent --show-error --max-time 90 "https://bharat-ai-api.gyarasigujjar57.workers.dev/health?test=1")"
+          echo "$result"
+          echo "$result" | grep -q '"aiReady":true'
+
+      - name: Check real streaming response
+        run: |
+          set -euo pipefail
+          result="$(curl --fail-with-body --silent --show-error --no-buffer --max-time 90 \
+            -H "Content-Type: application/json" \
+            -X POST "https://bharat-ai-api.gyarasigujjar57.workers.dev/api/chat/stream" \
+            --data '{"message":"Explain 2 + 2 in one short sentence.","history":[],"language":"en"}')"
+          echo "$result"
+          echo "$result" | grep -q '"text"'
+          echo "$result" | grep -q '\[DONE\]'
