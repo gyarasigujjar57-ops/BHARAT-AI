@@ -77,7 +77,7 @@ async function callGemini(model, key, history, maxOutputTokens = 1400, useSearch
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: systemText }] },
       contents: toGeminiContents(history),
-      ...(useSearch ? { tools: [{ google_search: {} }] } : {}),
+      ...(useSearch ? { tools: [{ googleSearch: {} }] } : {}),
       generationConfig: { maxOutputTokens, temperature: 0.55 }
     })
   });
@@ -91,7 +91,7 @@ async function callGeminiStream(model, key, history, useSearch = false, searchCo
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: systemText }] },
       contents: toGeminiContents(history),
-      ...(useSearch ? { tools: [{ google_search: {} }] } : {}),
+      ...(useSearch ? { tools: [{ googleSearch: {} }] } : {}),
       generationConfig: { maxOutputTokens: 1800, temperature: 0.55 }
     })
   });
@@ -239,9 +239,9 @@ function extractDdgUrl(href) {
 
 async function searchWeb(query) {
   const q = String(query || "")
-    .replace(/(?:google|web|internet)\\s*(?:par|pe|में|पर)\\s*(?:search|khoj|खोज|देख|dekh)?/gi, " ")
-    .replace(/(?:search|खोजकर|खोजो|देखकर|dekhkar)\\s*(?:karke|करके)?/gi, " ")
-    .replace(/\\s+/g, " ").trim().slice(0, 220);
+    .replace(/(?:google|web|internet)\s*(?:par|pe|में|पर)\s*(?:search|khoj|खोज|देख|dekh)?/gi, " ")
+    .replace(/(?:search|खोजकर|खोजो|देखकर|dekhkar)\s*(?:karke|करके)?/gi, " ")
+    .replace(/\s+/g, " ").trim().slice(0, 220);
   const searches = [q || String(query || "").slice(0, 220)];
   const all = [];
   for (const term of searches) {
@@ -522,12 +522,15 @@ export default {
       // Use the current Gemini Interactions API with its native Google Search tool.
       const liveSearch = await callGeminiInteractionsSearch(env.GEMINI_API_KEY, history);
       let livePayload = null;
+      let googleSearchError = "";
       let parsed = { reply: "", sourceCount: 0 };
       if (liveSearch.ok) {
         try {
           livePayload = await liveSearch.json();
           parsed = extractInteractionReply(livePayload);
-        } catch (_) {}
+        } catch (error) { googleSearchError = String(error?.message || error); }
+      } else {
+        googleSearchError = await readGeminiError(liveSearch);
       }
       let freshReply = parsed.reply;
       let sourceCount = parsed.sourceCount;
@@ -553,7 +556,16 @@ export default {
         }, 503);
       }
       if (url.pathname === "/api/chat/stream") return clockStream(freshReply);
-      return json({ reply: freshReply, model: sourceCount > 0 ? PRIMARY_MODEL + " + Google Search" : "Bing RSS fallback" });
+      return json({
+        reply: freshReply,
+        model: sourceCount > 0 ? PRIMARY_MODEL + " + Google Search" : "Bing RSS fallback",
+        searchDiagnostics: {
+          googleHttpStatus: liveSearch.status,
+          interactionStatus: livePayload?.status || "",
+          googleSourceCount: sourceCount,
+          googleError: googleSearchError ? googleSearchError.slice(0, 220) : ""
+        }
+      });
     }
 
     if (url.pathname === "/api/chat/stream") {
