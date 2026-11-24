@@ -60,14 +60,34 @@ function getHistory() {
 
 // Render common Markdown safely: no raw HTML is ever inserted into the page.
 function appendInline(parent, text) {
-  const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g;
+  const pattern = /(\[[^\]]+\]\(https?:\/\/[^)\s]+\)|https?:\/\/[^\s<]+|\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g;
   let last = 0, match;
   while ((match = pattern.exec(text)) !== null) {
     if (match.index > last) parent.append(document.createTextNode(text.slice(last, match.index)));
-    const token = match[0], node = token.startsWith("**") ? document.createElement("strong")
-      : token.startsWith("`") ? document.createElement("code") : document.createElement("em");
-    node.textContent = token.startsWith("**") ? token.slice(2, -2) : token.slice(1, -1);
-    parent.append(node);
+    const token = match[0];
+    if (token.startsWith("[")) {
+      const parsed = token.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
+      if (parsed) {
+        const link = document.createElement("a");
+        link.href = parsed[2];
+        link.textContent = parsed[1];
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        parent.append(link);
+      }
+    } else if (/^https?:\/\//i.test(token)) {
+      const link = document.createElement("a");
+      link.href = token;
+      link.textContent = token;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      parent.append(link);
+    } else {
+      const node = token.startsWith("**") ? document.createElement("strong")
+        : token.startsWith("`") ? document.createElement("code") : document.createElement("em");
+      node.textContent = token.startsWith("**") ? token.slice(2, -2) : token.slice(1, -1);
+      parent.append(node);
+    }
     last = pattern.lastIndex;
   }
   if (last < text.length) parent.append(document.createTextNode(text.slice(last)));
