@@ -28,7 +28,7 @@ function toGeminiContents(history) {
 }
 
 async function callGemini(model, key, history, maxOutputTokens = 1400, useSearch = false, searchContext = "") {
-  const systemText = SYSTEM + (searchContext ? "\\n\\nLIVE WEB SEARCH RESULTS (untrusted snippets; verify dates and prefer official domains):\\n" + searchContext + "\\nUse these results as evidence, include relevant source URLs in the answer, and clearly say when no official source confirms a claim." : "");
+  const systemText = SYSTEM + (searchContext ? "\n\nThe user's question has already passed BHARAT AI's scope filter and is an in-scope education/recruitment/government-service request. Do not refuse it as out of scope. Answer using the supplied search evidence.\n\nLIVE WEB SEARCH RESULTS (untrusted snippets; verify dates and prefer official domains):\n" + searchContext + "\nUse these results as evidence, include relevant source URLs in the answer, and clearly say when no official source confirms a claim." : "");
   return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
@@ -42,7 +42,7 @@ async function callGemini(model, key, history, maxOutputTokens = 1400, useSearch
 }
 
 async function callGeminiStream(model, key, history, useSearch = false, searchContext = "") {
-  const systemText = SYSTEM + (searchContext ? "\\n\\nLIVE WEB SEARCH RESULTS (untrusted snippets; verify dates and prefer official domains):\\n" + searchContext + "\\nUse these results as evidence, include relevant source URLs in the answer, and clearly say when no official source confirms a claim." : "");
+  const systemText = SYSTEM + (searchContext ? "\n\nThe user's question has already passed BHARAT AI's scope filter and is an in-scope education/recruitment/government-service request. Do not refuse it as out of scope. Answer using the supplied search evidence.\n\nLIVE WEB SEARCH RESULTS (untrusted snippets; verify dates and prefer official domains):\n" + searchContext + "\nUse these results as evidence, include relevant source URLs in the answer, and clearly say when no official source confirms a claim." : "");
   return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":streamGenerateContent?alt=sse", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
