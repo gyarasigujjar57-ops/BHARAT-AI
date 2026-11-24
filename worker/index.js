@@ -147,13 +147,13 @@ async function generateWithFallback(key, contents, maxOutputTokens = 1400, useSe
     if (!shouldFallback) return { response, model, error: firstError };
 
     model = FALLBACK_MODEL;
-    response = await callGemini(model, key, contents, maxOutputTokens);
+    response = await callGemini(model, key, contents, maxOutputTokens, useSearch);
     return { response, model, error: firstError };
   } catch (error) {
     const firstFailure = error?.name === "AbortError" ? "timeout" : "network";
     try {
       model = FALLBACK_MODEL;
-      response = await callGemini(model, key, contents, maxOutputTokens);
+      response = await callGemini(model, key, contents, maxOutputTokens, useSearch);
       return { response, model, error: firstFailure };
     } catch (fallbackError) {
       return {
