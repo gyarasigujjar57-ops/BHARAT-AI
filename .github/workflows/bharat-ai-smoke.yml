@@ -33,6 +33,28 @@ jobs:
           echo "$result" | grep -q '"text"'
           echo "$result" | grep -q '\[DONE\]'
 
+      - name: Check general assistant is not scope-locked
+        run: |
+          set -euo pipefail
+          result="$(curl --fail-with-body --silent --show-error --no-buffer --max-time 90 \
+            -H "Content-Type: application/json" \
+            -X POST "https://bharat-ai-api.gyarasigujjar57.workers.dev/api/chat/stream" \
+            --data '{"message":"Explain what a black hole is in simple Hindi.","history":[],"language":"hi"}')"
+          echo "$result"
+          ! echo "$result" | grep -q 'मैं यह काम नहीं कर सकता'
+          echo "$result" | grep -q '"text"'
+
+      - name: Check Google-grounded current answer has source links
+        run: |
+          set -euo pipefail
+          result="$(curl --fail-with-body --silent --show-error --max-time 90 \
+            -H "Content-Type: application/json" \
+            -X POST "https://bharat-ai-api.gyarasigujjar57.workers.dev/api/chat" \
+            --data '{"message":"Google पर खोजकर आज की भारत की ताज़ा प्रमुख खबरें बताओ और स्रोत लिंक दो।","history":[]}')"
+          echo "$result"
+          echo "$result" | grep -qi 'https\?://'
+          echo "$result" | grep -q 'स्रोत'
+
       - name: Inspect search provider response
         run: |
           set -euo pipefail
