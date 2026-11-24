@@ -166,8 +166,22 @@ async function generateWithFallback(key, contents, maxOutputTokens = 1400, useSe
 }
 
 function needsFreshWebInfo(message) {
-  const text = String(message || "").toLowerCase();
-  return ["latest","today","current","currently","now","new","recent","updated","open","active","last date","deadline","result","released","notification","vacancy","vacancies","bharti","bhartiya","sarkari naukri","abhi","aaj","filhaal","vartaman","nayi","naya","nikli","khuli","chalu","antim tithi","aakhri tarikh","kab tak","भर्ती","भर्तियां","भर्तियाँ","आज","अभी","वर्तमान","नई भर्ती","नया नोटिफिकेशन","अंतिम तिथि","आखिरी तारीख","खुली हुई","जारी हुआ","निकली है","रिजल्ट","नतीजा"].some(term => text.includes(term));
+  const text = String(message || "").toLowerCase().trim();
+  // Recruitment and application questions are time-sensitive even when
+  // the user does not explicitly say "latest" or "today".
+  const freshTerms = [
+    "latest","today","current","currently","right now","now","new","recent","updated",
+    "open","active","last date","deadline","result","released","notification",
+    "vacancy","vacancies","recruitment","recruit","hiring","job","jobs","naukri",
+    "bharti","bhartiya","sarkari","government job","govt job","application started",
+    "form started","admission open","abhi","aaj","filhaal","vartaman","nayi","naya",
+    "nikli","khuli","chalu","antim tithi","aakhri tarikh","kab tak","naukri nikli",
+    "भर्ती","भर्तियां","भर्तियाँ","नौकरी","सरकारी नौकरी","सरकारी भर्ती","रिक्ति",
+    "रिक्तियां","रिक्तियाँ","भर्ती निकली","नई भर्ती","नया नोटिफिकेशन","अंतिम तिथि",
+    "आखिरी तारीख","खुली हुई","आवेदन शुरू","फॉर्म शुरू","दाखिले शुरू","प्रवेश शुरू",
+    "जारी हुआ","निकली है","रिजल्ट","नतीजा","आज","अभी","वर्तमान"
+  ];
+  return freshTerms.some(term => text.includes(term));
 }
 
 function isInScope(message, priorHistory = []) {
@@ -327,18 +341,23 @@ export default {
 
     if (url.pathname === "/api/chat/stream") {
       let live = await callGeminiStream(PRIMARY_MODEL, env.GEMINI_API_KEY, history, needsFreshWebInfo(message));
+      let liveSearchError = "";
       if (!live.ok) {
         const status = live.status;
-        await readGeminiError(live);
+        liveSearchError = await readGeminiError(live);
         if ([400, 404, 429].includes(status) || status >= 500) {
           live = await callGeminiStream(FALLBACK_MODEL, env.GEMINI_API_KEY, history, needsFreshWebInfo(message));
+          if (!live.ok) liveSearchError = (liveSearchError + " " + await readGeminiError(live)).trim();
         }
       }
       if (live.ok && live.body) return makeLiveStream(live);
       // Never answer time-sensitive questions from the offline Gemma backup.
       // It has no live web search and could present stale recruitment information.
       if (needsFreshWebInfo(message)) {
-        return json({ error: "ताज़ा जानकारी के लिए लाइव सर्च अभी उपलब्ध नहीं हो पाई। पुरानी जानकारी देने के बजाय मैं रुक रहा हूँ। थोड़ी देर बाद फिर कोशिश करें।" }, 503);
+        return json({
+          error: "इस सवाल के लिए लाइव वेब सर्च उपलब्ध नहीं हो सकी। Gemini API की Search Grounding सुविधा इस प्रोजेक्ट में उपलब्ध न हो सकती है या उसकी सीमा पूरी हो सकती है। सरकारी भर्ती/तारीख की अपुष्ट जानकारी देने के बजाय BHARAT AI रुक रहा है।",
+          liveSearchUnavailable: true
+        }, 503);
       }
       const backup = await generateCloudflareFallback(env, history);
       if (backup) {
@@ -357,6 +376,13 @@ export default {
     let activeModel = result.model;
     if (result.response?.ok) {
       try { reply = extractReply(await result.response.json()); } catch (_) {}
+    }
+
+    if (!reply && needsFreshWebInfo(message)) {
+      return json({
+        error: "इस सवाल के लिए लाइव वेब सर्च उपलब्ध नहीं हो सकी। सरकारी भर्ती/तारीख की अपुष्ट जानकारी देने के बजाय BHARAT AI रुक रहा है।",
+        liveSearchUnavailable: true
+      }, 503);
     }
 
     if (!reply) {
