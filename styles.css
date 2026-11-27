@@ -59,3 +59,16 @@
 .form-shortcuts button{border:1px solid #e0e9e2;border-radius:18px;background:#fff;color:#356348;padding:8px 11px;font:inherit;font-size:11px}
 [hidden]{display:none!important}
 @media(max-width:480px){.form-start{margin:10px 0 20px;padding:19px 15px;border-radius:16px}.form-start h1{font-size:22px}}
+
+/* On-device document reading */
+.document-tool{margin-top:17px;padding:14px;border:1px solid #e4ece5;border-radius:13px;background:#fafffb}
+.document-tool-title{font-size:14px;font-weight:750;color:#294b35}
+.document-tool p{font-size:11px;line-height:1.6;color:#6e7c72;margin:5px 0 11px}
+.document-tool input{height:auto;padding:10px;font-size:12px}
+.document-button,.document-copy{width:100%;min-height:42px;margin-top:9px;border-radius:10px;font:inherit;font-size:12px;font-weight:700}
+.document-button{border:0;background:#e6f3e9;color:#176b3c}
+.document-copy{border:1px solid #dce7de;background:#fff;color:#315a40}
+.document-button:disabled,.document-copy:disabled{opacity:.5}
+.ocr-status{font-size:11px;line-height:1.5;color:#68766c;margin:9px 0}
+.form-start .ocr-result{display:block;width:100%;height:auto;min-height:110px;max-height:220px;padding:10px;border:1px solid #dfe8e1;border-radius:9px;font:12px/1.55 ui-monospace,monospace;resize:vertical}
+.ocr-privacy{margin-top:9px;color:#8a6a37;font-size:10px;line-height:1.6}
