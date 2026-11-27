@@ -4,6 +4,25 @@ const form = document.querySelector("#form");
 const input = document.querySelector("#message");
 const send = document.querySelector("#send");
 const connection = document.querySelector("#connection");
+let activeMode = "assistant";
+const modeHint = document.querySelector("#modeHint");
+const modeTabs = [...document.querySelectorAll("[data-mode]")];
+function setMode(mode) {
+  activeMode = mode === "form" ? "form" : "assistant";
+  modeTabs.forEach(tab => {
+    const selected = tab.dataset.mode === activeMode;
+    tab.classList.toggle("active", selected);
+    tab.setAttribute("aria-pressed", String(selected));
+  });
+  if (activeMode === "form") {
+    modeHint.textContent = "सरकारी फॉर्म की जानकारी और तैयारी — अभी टेक्स्ट-आधारित सहायता";
+    input.placeholder = "कौन-सा सरकारी फॉर्म भरना है? विभाग, राज्य या फॉर्म का नाम लिखें…";
+  } else {
+    modeHint.textContent = "सामान्य सवाल, पढ़ाई, टेक्नोलॉजी और जानकारी के लिए";
+    input.placeholder = "कुछ भी पूछें — ज़रूरत पड़ने पर BHARAT AI वेब पर खोजे...";
+  }
+}
+modeTabs.forEach(tab => tab.addEventListener("click", () => setMode(tab.dataset.mode)));
 
 function addMessage(text, role) {
   const wrap = document.createElement("div");
@@ -222,7 +241,12 @@ async function ask(question) {
     const response = await fetch(API_BASE_URL + "/api/chat/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: question, history, language: "hi" }),
+      body: JSON.stringify({
+        message: activeMode === "form"
+          ? "BHARAT FORM AI MODE: You are helping with an Indian government/service application form. First identify the exact scheme/form and state/department. Ask only for missing non-sensitive details. Prefer official government sources for changing rules, eligibility, fees and deadlines. Never invent a portal, eligibility result or required document. Explain each step clearly. Do not ask the user to send Aadhaar/PAN numbers, OTPs, passwords, bank credentials or biometric data. Do not claim to read uploaded files or automatically fill/submit websites; this MVP currently supports text guidance only. The user must review declarations, payments and final submission.\n\nUser request: " + question
+          : question,
+        history, language: "hi"
+      }),
       signal: controller.signal
     });
     if (!response.ok) {
