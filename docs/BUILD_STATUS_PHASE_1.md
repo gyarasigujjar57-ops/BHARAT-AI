@@ -7,9 +7,12 @@ Last updated: 2026-11-27
 - Two UI modes exist: BHARAT AI Assistant and BHARAT FORM AI.
 - Browser sends chat requests to the Cloudflare Worker stream endpoint.
 - Worker contains Gemini integration, a health endpoint, and a Cloudflare Workers AI fallback path.
-- Current Form AI is text guidance only. It does not OCR documents, access government portals, autofill, submit forms, or display an Android overlay.
+- Form AI now has a dedicated intake workspace for form name, state and task type, plus a structured AI workflow for official-source verification, eligibility status, document checklist and field-by-field guidance. It remains text-only: no OCR, portal access, autofill, submit or Android overlay.
 
 ## Changes in this phase
+- Added a dedicated mobile-first Form AI intake workspace with form/scheme name, state selector, help-purpose selector, quick categories and a start action. New-chat reset preserves the correct mode workspace.
+- Added Form AI-specific backend instructions: official-source-first verification, meets/does-not-meet/unknown eligibility, tailored document checklist, one focused non-sensitive follow-up at a time, and field-by-field explanation. The same rules apply to Gemini Search, standard Gemini and the Cloudflare backup path.
+- Form AI clearly states the current limits: text guidance only; no document OCR/upload pipeline, government portal browser, autofill or Android overlay.
 - Added a user-triggered real AI test from the app's connection control. App startup still performs only a cheap health check; the paid/quota-consuming model test runs only after a deliberate tap. The UI distinguishes Gemini success from a Cloudflare backup response.
 - Updated the Wrangler model setting from the retired `gemini-2.0-flash` value to `gemini-3.8-flash`. The Worker source currently selects its model in code; keep the configuration and source aligned during the next deployment.
 - Guest chat is no longer persisted to localStorage. Conversation context remains in the current page session only and is lost on refresh.
