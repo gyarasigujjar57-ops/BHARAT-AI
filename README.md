@@ -4,8 +4,8 @@ India's focused Study & Action Assistant for exams, recruitment, admissions, sch
 
 ## Product modes (current MVP)
 - **BHARAT AI Assistant:** general Hindi-first AI chat.
-- **BHARAT FORM AI:** a dedicated form-intake workspace. Users can enter the form/scheme/recruitment name, select a state and choose the help needed; the app sends a structured, official-source-first request to the AI for eligibility, document checklist and page-by-page field guidance.
-- FORM AI is currently text-guidance only. The intake workspace and guided workflow prompt are implemented; document OCR, secure document processing, live portal reading, field autofill, and Android overlay are not implemented yet.
+- **BHARAT FORM AI:** a dedicated form-intake workspace with local browser OCR for images and PDFs, plus official-source-first AI guidance for eligibility, document checklists and page-by-page form fields.
+- FORM AI can extract text from selected images and PDFs locally in the browser (up to 5 files, 8 MB each, and 10 PDF pages per file). Files are not posted to the BHARAT AI Worker. OCR text stays in the open page until refresh; a copy action removes common number patterns, but users must manually remove names, dates, addresses and other private details. Secure document storage, robust OCR review, live portal reading, field autofill and Android overlay are not implemented yet.
 - The mode selector is part of the web app; the API and Gemini connection still require live end-to-end testing.
 
 ## First foundation
