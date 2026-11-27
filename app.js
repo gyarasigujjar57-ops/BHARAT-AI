@@ -40,30 +40,7 @@ function hideWelcome() {
   document.querySelector("#welcome")?.remove();
 }
 
-const CHAT_STORAGE_KEY = "bharat_ai_guest_chat_v1";
-function saveGuestChat() {
-  try {
-    const messages = [...chat.querySelectorAll(".message")].map(el => ({
-      role: el.classList.contains("user") ? "user" : "bot",
-      text: el.querySelector(".bubble")?.textContent || ""
-    })).filter(item => item.text && !item.text.includes("जवाब तैयार कर रहा है"));
-    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages.slice(-40)));
-  } catch (_) {}
-}
-function restoreGuestChat() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || "[]");
-    if (!Array.isArray(saved) || !saved.length) return;
-    hideWelcome();
-    for (const item of saved.slice(-40)) {
-      if (!item || !["user","bot"].includes(item.role) || typeof item.text !== "string") continue;
-      const bubble = addMessage(item.text, item.role);
-      if (item.role === "bot") renderMarkdown(bubble, item.text);
-    }
-  } catch (_) {
-    try { localStorage.removeItem(CHAT_STORAGE_KEY); } catch (_) {}
-  }
-}
+// Privacy-first MVP: conversation history exists only in the current page session.
 
 function getHistory() {
   return [...chat.querySelectorAll(".message")]
@@ -276,7 +253,7 @@ async function ask(question) {
     input.disabled = false;
     input.focus();
     chat.scrollTop = chat.scrollHeight;
-    saveGuestChat();
+
   }
 }
 
@@ -301,7 +278,7 @@ bindQuickPrompts();
 document.querySelector("#reset").addEventListener("click", () => {
   if (send.disabled) return;
   chat.innerHTML = '<section class="welcome" id="welcome"><div class="welcome-icon">भा</div><h1>नमस्ते! मैं BHARAT AI हूँ।</h1><p>परीक्षा, भर्ती, दाखिले, छात्रवृत्ति और फॉर्म से जुड़े काम के लिए पूछें।</p><div class="quick-prompts"><button data-q="राजस्थान में 12वीं पास के लिए सरकारी भर्तियाँ बताओ">सरकारी भर्तियाँ</button><button data-q="मुझे सरकारी फॉर्म भरने में मदद चाहिए">फॉर्म भरने में मदद</button><button data-q="सरकारी योजनाओं की जानकारी दो">सरकारी योजनाएँ</button><button data-q="मेरे दस्तावेज़ समझने में मदद करो">दस्तावेज़</button></div></section>';
-  try { localStorage.removeItem(CHAT_STORAGE_KEY); } catch (_) {}
+
   bindQuickPrompts(); input.focus();
 });
 input.addEventListener("keydown", event => {
