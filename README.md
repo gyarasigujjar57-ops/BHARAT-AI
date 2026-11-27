@@ -26,7 +26,7 @@ Never enter Aadhaar/PAN numbers, OTPs, passwords or bank credentials in chat. Th
 ## Roadmap
 1. Deploy and test Worker + AI.
 2. Add consent-based sign-in and secure profile storage.
-3. Add document extraction with user review.
+3. Validate local document OCR on real Android devices; add reviewed Master Profile extraction.
 4. Add official-source registry and recruitment notice parser.
 5. Build tested portal-specific form assistance.
 6. Package as Android app and test on real devices.
