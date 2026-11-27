@@ -174,24 +174,40 @@ async function readLiveReply(response, element) {
   if (fullText.trim()) renderMarkdown(element, fullText);
   return fullText;
 }
-async function checkAIConnection() {
+async function checkAIConnection(testAI = false) {
   if (!connection) return;
-  connection.textContent = "AI जाँच रहा है…";
+  connection.textContent = testAI ? "असली AI टेस्ट चल रहा है…" : "सर्वर जाँच रहा है…";
   connection.classList.remove("ready", "failed");
   connection.disabled = true;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 35000);
+  const timer = setTimeout(() => controller.abort(), testAI ? 60000 : 15000);
   try {
-    // Cheap health check only. Never spend a Gemini request just because
-    // someone opened the app or tapped the connection indicator.
-    const response = await fetch(API_BASE_URL + "/health", { method: "GET", cache: "no-store", signal: controller.signal });
+    // Opening the app performs only a cheap health check. A real model test
+    // runs only after the user taps the connection control.
+    const endpoint = API_BASE_URL + "/health" + (testAI ? "?test=1" : "");
+    const response = await fetch(endpoint, {
+      method: "GET", cache: "no-store", signal: controller.signal
+    });
     const data = await response.json();
-    if (!response.ok || data.ok !== true || data.aiKeyConfigured !== true) throw new Error(data.error || "सर्वर कनेक्शन नहीं बना।");
-    connection.textContent = "सर्वर जुड़ा है · AI सवाल पर चलेगा";
+    if (!response.ok || data.ok !== true || data.aiKeyConfigured !== true) {
+      throw new Error(data.error || "सर्वर कनेक्शन नहीं बना।");
+    }
+    if (testAI) {
+      if (data.aiReady !== true) throw new Error("AI टेस्ट पूरा नहीं हुआ।");
+      if (String(data.model || "").includes("Cloudflare Workers AI")) {
+        connection.textContent = "Backup AI टेस्ट सफल · Gemini की पुष्टि नहीं";
+        connection.title = "Backup AI ने जवाब दिया। Gemini का असली जवाब अभी सफलतापूर्वक सत्यापित नहीं हुआ।";
+      } else {
+        connection.textContent = "Gemini AI टेस्ट सफल";
+        connection.title = "Gemini से वास्तविक टेस्ट जवाब मिला: " + String(data.testReply || "").slice(0, 160);
+      }
+    } else {
+      connection.textContent = "सर्वर जुड़ा है · AI सवाल पर चलेगा";
+      connection.title = "सर्वर उपलब्ध है। असली AI टेस्ट के लिए यहाँ टैप करें।";
+    }
     connection.classList.add("ready");
-    connection.title = "सर्वर उपलब्ध है। Gemini का उपयोग तभी होगा जब आप सवाल भेजेंगे।";
   } catch (error) {
-    connection.textContent = "AI कनेक्शन में समस्या · फिर जाँचें";
+    connection.textContent = testAI ? "AI टेस्ट असफल · फिर कोशिश करें" : "AI कनेक्शन में समस्या · फिर जाँचें";
     connection.classList.add("failed");
     connection.title = error.name === "AbortError" ? "AI जाँच में समय लग गया।" : error.message;
   } finally {
@@ -199,7 +215,6 @@ async function checkAIConnection() {
     connection.disabled = false;
   }
 }
-
 async function ask(question) {
   hideWelcome();
   const history = getHistory();
@@ -284,5 +299,5 @@ document.querySelector("#reset").addEventListener("click", () => {
 input.addEventListener("keydown", event => {
   if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); form.requestSubmit(); }
 });
-connection?.addEventListener("click", checkAIConnection);
+connection?.addEventListener("click", () => checkAIConnection(true));
 checkAIConnection();
