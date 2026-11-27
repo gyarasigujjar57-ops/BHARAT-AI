@@ -290,6 +290,101 @@ form.addEventListener("submit", event => {
   ask(question);
 });
 
+
+let localOcrWorker = null;
+async function getLocalOcrWorker() {
+  if (localOcrWorker) return localOcrWorker;
+  if (!window.Tesseract) throw new Error("OCR लाइब्रेरी लोड नहीं हुई। इंटरनेट जाँचकर पेज refresh करें।");
+  localOcrWorker = await window.Tesseract.createWorker("eng+hin", 1);
+  return localOcrWorker;
+}
+function setOcrStatus(message) {
+  const status = document.querySelector("#ocrStatus");
+  if (status) status.textContent = message;
+}
+function redactForCopy(value) {
+  return String(value || "")
+    .replace(/\b\d{4}[ -]?\d{4}[ -]?\d{4}\b/g, "[12-अंकों की पहचान संख्या हटाई]")
+    .replace(/\b[A-Z]{5}\d{4}[A-Z]\b/gi, "[PAN हटाया]")
+    .replace(/\b(?:\+91[- ]?)?[6-9]\d{9}\b/g, "[मोबाइल नंबर हटाया]")
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, "[ईमेल हटाया]");
+}
+async function readPdfLocally(file, worker) {
+  if (!window.pdfjsLib) throw new Error("PDF reader लोड नहीं हुआ। इंटरनेट जाँचकर refresh करें।");
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+  const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  const pageCount = Math.min(pdf.numPages, 10);
+  let output = "";
+  for (let pageNo = 1; pageNo <= pageCount; pageNo++) {
+    setOcrStatus(file.name + " — पेज " + pageNo + "/" + pageCount + " पढ़ रहा है…");
+    const page = await pdf.getPage(pageNo);
+    const content = await page.getTextContent();
+    const textLayer = content.items.map(item => item.str || "").join(" ").trim();
+    if (textLayer.length > 25) {
+      output += "\n[पेज " + pageNo + "]\n" + textLayer + "\n";
+      continue;
+    }
+    const viewport = page.getViewport({ scale: 1.6 });
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    await page.render({ canvasContext: context, viewport }).promise;
+    const result = await worker.recognize(canvas);
+    output += "\n[पेज " + pageNo + " — OCR]\n" + (result.data.text || "") + "\n";
+    canvas.width = 1; canvas.height = 1;
+  }
+  if (pdf.numPages > 10) output += "\n[बाकी " + (pdf.numPages - 10) + " पेज इस मोबाइल MVP में नहीं पढ़े गए]\n";
+  return output;
+}
+document.querySelector("#runOcr")?.addEventListener("click", async () => {
+  const picker = document.querySelector("#formDocs");
+  const files = [...(picker?.files || [])];
+  const output = document.querySelector("#ocrText");
+  const copyButton = document.querySelector("#copyOcr");
+  if (!files.length) { setOcrStatus("पहले फोटो या PDF चुनें।"); return; }
+  if (files.length > 5) { setOcrStatus("एक बार में अधिकतम 5 फाइलें चुनें।"); return; }
+  if (files.some(file => file.size > 8 * 1024 * 1024)) { setOcrStatus("कोई फाइल 8 MB से बड़ी है। छोटी फाइल चुनें।"); return; }
+  const runButton = document.querySelector("#runOcr");
+  runButton.disabled = true;
+  if (copyButton) copyButton.disabled = true;
+  if (output) output.value = "";
+  try {
+    setOcrStatus("फोन पर OCR तैयार हो रहा है। पहली बार भाषा फ़ाइलें डाउनलोड हो सकती हैं…");
+    const worker = await getLocalOcrWorker();
+    let combined = "";
+    for (const file of files) {
+      setOcrStatus(file.name + " पढ़ रहा है…");
+      if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+        combined += "\n===== " + file.name + " =====\n" + await readPdfLocally(file, worker);
+      } else if (["image/jpeg","image/png","image/webp"].includes(file.type)) {
+        const result = await worker.recognize(file);
+        combined += "\n===== " + file.name + " =====\n" + (result.data.text || "") + "\n";
+      } else {
+        throw new Error("यह फाइल प्रकार समर्थित नहीं है: " + file.name);
+      }
+    }
+    if (output) output.value = combined.trim();
+    if (copyButton) copyButton.disabled = !combined.trim();
+    setOcrStatus("पढ़ना पूरा हुआ। टेक्स्ट नीचे केवल इसी डिवाइस के पेज में है। मूल दस्तावेज़ से जाँचें।");
+  } catch (error) {
+    setOcrStatus("OCR पूरा नहीं हुआ: " + error.message);
+  } finally {
+    runButton.disabled = false;
+  }
+});
+document.querySelector("#copyOcr")?.addEventListener("click", async () => {
+  const value = document.querySelector("#ocrText")?.value || "";
+  if (!value) return;
+  const safe = redactForCopy(value);
+  try {
+    await navigator.clipboard.writeText(safe);
+    setOcrStatus("नंबरों की सामान्य पहचान हटाकर टेक्स्ट कॉपी हुआ। नाम, जन्मतिथि, पता और बाकी निजी जानकारी भेजने से पहले खुद हटाएँ।");
+  } catch (_) {
+    setOcrStatus("कॉपी नहीं हुआ। टेक्स्ट बॉक्स से चुनकर खुद कॉपी करें और निजी जानकारी हटाएँ।");
+  }
+});
+
 document.querySelector("#startForm")?.addEventListener("click", () => {
   if (send.disabled) return;
   const name = document.querySelector("#formName")?.value.trim() || "";
