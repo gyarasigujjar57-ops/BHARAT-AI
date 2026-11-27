@@ -425,7 +425,6 @@ document.querySelector("#reset").addEventListener("click", () => {
   const formStart = document.querySelector("#formStart");
   if (welcome) welcome.hidden = activeMode === "form";
   if (formStart) formStart.hidden = activeMode !== "form";
-  bindQuickPrompts();
   input.focus();
 });
 input.addEventListener("keydown", event => {
