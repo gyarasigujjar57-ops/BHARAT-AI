@@ -32,3 +32,13 @@ Never enter Aadhaar/PAN numbers, OTPs, passwords or bank credentials in chat. Th
 6. Package as Android app and test on real devices.
 
 This is an MVP foundation, not a claim that every service or automatic form submission is already implemented.
+
+
+## Privacy-first MVP update (2026-11-27)
+- Guest chat is held only in the current page session; refreshing the page clears the conversation.
+- The composer warns users not to send Aadhaar/PAN numbers, OTPs, passwords, or bank information.
+- Worker rejects chat API request bodies larger than 64 KiB.
+- See [Phase 1 build status](docs/BUILD_STATUS_PHASE_1.md) for verified implementation status and production launch blockers.
+
+## Security status
+This prototype is not yet production-ready. Authentication, per-user authorization, robust rate limiting, production CORS allowlisting, Firebase verification, secure document storage, and formal privacy/incident processes remain to be implemented and tested.
