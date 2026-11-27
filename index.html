@@ -47,6 +47,16 @@
       <option value="पूरी आवेदन प्रक्रिया समझना">पूरी आवेदन प्रक्रिया समझना</option>
     </select>
     <button type="button" id="startForm" class="form-start-button">फॉर्म सहायता शुरू करें <span>→</span></button>
+    <div class="document-tool">
+      <div class="document-tool-title">दस्तावेज़ पढ़ें (फोन पर ही)</div>
+      <p>फोटो या PDF चुनें। OCR इसी ब्राउज़र में चलेगा; फाइल BHARAT AI सर्वर पर अपलोड नहीं होगी।</p>
+      <input id="formDocs" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple>
+      <button type="button" id="runOcr" class="document-button">दस्तावेज़ पढ़ें</button>
+      <div id="ocrStatus" class="ocr-status" role="status">एक बार में अधिकतम 5 फाइलें, हर फाइल 8 MB तक। PDF के पहले 10 पेज पढ़े जाएँगे।</div>
+      <textarea id="ocrText" class="ocr-result" rows="6" placeholder="यहाँ OCR से निकला टेक्स्ट दिखेगा…" readonly></textarea>
+      <button type="button" id="copyOcr" class="document-copy" disabled>संवेदनशील नंबर हटाकर टेक्स्ट कॉपी करें</button>
+      <div class="ocr-privacy">ध्यान दें: OCR की भाषा फ़ाइलें पहली बार इंटरनेट से डाउनलोड होंगी। कॉपी करने से पहले नाम, जन्मतिथि, पता और अन्य निजी जानकारी भी खुद हटाएँ। OCR गलती कर सकता है; मूल दस्तावेज़ से मिलान ज़रूरी है।</div>
+    </div>
     <div class="form-safety">अभी यह संस्करण टेक्स्ट के जरिए मार्गदर्शन देता है। Aadhaar/PAN नंबर, OTP, पासवर्ड या बैंक जानकारी यहाँ न लिखें।</div>
     <div class="form-shortcuts">
       <button type="button" data-form-prompt="मुझे सरकारी भर्ती का आवेदन भरना है। पहले सही आधिकारिक नोटिफिकेशन और पात्रता जाँचो।">सरकारी भर्ती</button>
