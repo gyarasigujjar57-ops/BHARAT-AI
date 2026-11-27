@@ -55,26 +55,13 @@ jobs:
           echo "$result" | grep -qi 'https\?://'
           echo "$result" | grep -q 'स्रोत'
 
-      - name: Inspect search provider response
+      - name: Check Google Search grounding diagnostics
         run: |
           set -euo pipefail
-          curl --silent --show-error --max-time 30 -A "Mozilla/5.0" -w "\\nHTTP_STATUS:%{http_code}\\n" "https://html.duckduckgo.com/html/?q=Rajasthan+12th+pass+government+job+latest+notification" -o /tmp/ddg.html
-          echo "result links: $(grep -o 'result__a' /tmp/ddg.html | wc -l)"
-          grep -Eo 'result__a|anomaly|captcha|challenge' /tmp/ddg.html | head -20 || true
-
-      - name: Check Bing RSS search endpoint
-        run: |
-          set -euo pipefail
-          curl --silent --show-error --max-time 30 -A "Mozilla/5.0" -w "\\nHTTP_STATUS:%{http_code}\\n" "https://www.bing.com/search?format=rss&q=Rajasthan+12th+pass+government+job+latest+notification" -o /tmp/bing.xml
-          echo "RSS items: $(grep -o '<item>' /tmp/bing.xml | wc -l)"
-          head -c 500 /tmp/bing.xml
-
-      - name: Check Worker live search results
-        run: |
-          set -euo pipefail
-          result="$(curl --fail-with-body --silent --show-error --max-time 20 "https://bharat-ai-api.gyarasigujjar57.workers.dev/health?searchtest=1")"
+          result="$(curl --fail-with-body --silent --show-error --max-time 90 "https://bharat-ai-api.gyarasigujjar57.workers.dev/health?searchtest=1")"
           echo "$result"
-          echo "$result" | grep -q '"resultCount":[1-9]'
+          echo "$result" | grep -q '"searchProvider":"Google Search via Gemini Interactions"'
+          echo "$result" | grep -Eq '"resultCount":[1-9]'
 
       - name: Check independent live web search for recruitment
         run: |
