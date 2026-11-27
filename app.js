@@ -43,7 +43,10 @@ function addMessage(text, role) {
 }
 
 function hideWelcome() {
-  document.querySelector("#welcome")?.remove();
+  const welcome = document.querySelector("#welcome");
+  const formStart = document.querySelector("#formStart");
+  if (welcome) welcome.hidden = true;
+  if (formStart) formStart.hidden = true;
 }
 
 // Privacy-first MVP: conversation history exists only in the current page session.
@@ -241,7 +244,7 @@ async function ask(question) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message: activeMode === "form"
-          ? "BHARAT FORM AI MODE: You are helping with an Indian government/service application form. First identify the exact scheme/form and state/department. Ask only for missing non-sensitive details. Prefer official government sources for changing rules, eligibility, fees and deadlines. Never invent a portal, eligibility result or required document. Explain each step clearly. Do not ask the user to send Aadhaar/PAN numbers, OTPs, passwords, bank credentials or biometric data. Do not claim to read uploaded files or automatically fill/submit websites; this MVP currently supports text guidance only. The user must review declarations, payments and final submission.\n\nUser request: " + question
+          ? "BHARAT FORM AI MODE: You are BHARAT FORM AI, a careful India government-form assistant. Follow this workflow: identify the exact form and department; use live Google Search and official sources to verify portal, current dates, fees, eligibility and document rules; ask one focused question at a time for missing non-sensitive facts; show eligibility as meets / does not meet / unknown with reasons; create a tailored document checklist; then explain each page and field step by step. Never guess or invent a portal, deadline, eligibility result or required document. Do not ask for Aadhaar/PAN numbers, OTPs, passwords, bank credentials, UPI PIN, signatures or biometrics. This MVP is text guidance only: do not claim to read uploads, operate websites, auto-fill, submit or show an overlay. The user performs OTP, CAPTCHA, payment, declarations and final submission.\n\nUser request: " + question
           : question,
         history, language: "hi"
       }),
@@ -322,9 +325,13 @@ function bindQuickPrompts() {
 bindQuickPrompts();
 document.querySelector("#reset").addEventListener("click", () => {
   if (send.disabled) return;
-  chat.innerHTML = '<section class="welcome" id="welcome"><div class="welcome-icon">भा</div><h1>नमस्ते! मैं BHARAT AI हूँ।</h1><p>परीक्षा, भर्ती, दाखिले, छात्रवृत्ति और फॉर्म से जुड़े काम के लिए पूछें।</p><div class="quick-prompts"><button data-q="राजस्थान में 12वीं पास के लिए सरकारी भर्तियाँ बताओ">सरकारी भर्तियाँ</button><button data-q="मुझे सरकारी फॉर्म भरने में मदद चाहिए">फॉर्म भरने में मदद</button><button data-q="सरकारी योजनाओं की जानकारी दो">सरकारी योजनाएँ</button><button data-q="मेरे दस्तावेज़ समझने में मदद करो">दस्तावेज़</button></div></section>';
-
-  bindQuickPrompts(); input.focus();
+  chat.querySelectorAll(".message").forEach(message => message.remove());
+  const welcome = document.querySelector("#welcome");
+  const formStart = document.querySelector("#formStart");
+  if (welcome) welcome.hidden = activeMode === "form";
+  if (formStart) formStart.hidden = activeMode !== "form";
+  bindQuickPrompts();
+  input.focus();
 });
 input.addEventListener("keydown", event => {
   if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); form.requestSubmit(); }
