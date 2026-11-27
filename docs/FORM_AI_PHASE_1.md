@@ -11,7 +11,7 @@
 
 ## Not implemented yet
 - Secure document vault, upload scanning, OCR quality review and comprehensive multi-page Hindi/regional OCR validation. The current local OCR prototype is not a verified document-reading system.
-- Secure document vault and Master Profile with field provenance.
+- Master Profile with field provenance.
 - Eligibility rules engine backed by verified official notices.
 - Government portal reader/browser and portal-specific adapters.
 - Automatic field entry, movable overlay, pause/resume and completion report.
@@ -33,5 +33,5 @@
 - [ ] Backend applies Form AI instructions to Gemini Search, Gemini standard generation and backup.
 - [ ] Test local image OCR and text/scanned PDF extraction on Android; confirm no file bytes are sent to the Worker.
 - [ ] Verify common sensitive-number redaction and explain that names, dates and addresses still require manual review.
-- [ ] Current text-only limitations are stated honestly.
+- [ ] Current prototype limits are stated honestly.
 - [ ] Test a real deployed Worker request and official-source citations.
