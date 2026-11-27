@@ -14,9 +14,15 @@ function setMode(mode) {
     tab.classList.toggle("active", selected);
     tab.setAttribute("aria-pressed", String(selected));
   });
+  const formStart = document.querySelector("#formStart");
+  const welcome = document.querySelector("#welcome");
+  if (formStart && welcome && !chat.querySelector(".message")) {
+    welcome.hidden = activeMode === "form";
+    formStart.hidden = activeMode !== "form";
+  }
   if (activeMode === "form") {
-    modeHint.textContent = "सरकारी फॉर्म की जानकारी और तैयारी — अभी टेक्स्ट-आधारित सहायता";
-    input.placeholder = "कौन-सा सरकारी फॉर्म भरना है? विभाग, राज्य या फॉर्म का नाम लिखें…";
+    modeHint.textContent = "फॉर्म पहचानें → पात्रता जाँचें → दस्तावेज़ तैयार करें → आवेदन में मदद लें";
+    input.placeholder = "फॉर्म या आवेदन से जुड़ा सवाल लिखें…";
   } else {
     modeHint.textContent = "सामान्य सवाल, पढ़ाई, टेक्नोलॉजी और जानकारी के लिए";
     input.placeholder = "कुछ भी पूछें — ज़रूरत पड़ने पर BHARAT AI वेब पर खोजे...";
@@ -280,6 +286,30 @@ form.addEventListener("submit", event => {
   input.style.height = "46px";
   ask(question);
 });
+
+document.querySelector("#startForm")?.addEventListener("click", () => {
+  if (send.disabled) return;
+  const name = document.querySelector("#formName")?.value.trim() || "";
+  const state = document.querySelector("#formState")?.value || "";
+  const task = document.querySelector("#formTask")?.value || "फॉर्म पहचानना और सही सरकारी वेबसाइट ढूँढना";
+  if (!name && !state) {
+    document.querySelector("#formName")?.focus();
+    return;
+  }
+  const details = [
+    "मुझे भारतीय सरकारी/सेवा फॉर्म में मदद चाहिए।",
+    name ? "फॉर्म/योजना/भर्ती: " + name : "",
+    state ? "राज्य: " + state : "",
+    "मदद का उद्देश्य: " + task,
+    "पहले आधिकारिक वेबसाइट/विभाग की पुष्टि करो। फिर एक-एक करके केवल जरूरी गैर-संवेदनशील सवाल पूछो। पात्रता, दस्तावेज और आवेदन के चरण अलग-अलग समझाओ। अभी किसी दस्तावेज़ को पढ़ने या वेबसाइट पर खुद फॉर्म भरने का दावा मत करना।"
+  ].filter(Boolean).join("\n");
+  ask(details);
+});
+document.querySelectorAll("[data-form-prompt]").forEach(button => button.addEventListener("click", () => {
+  if (send.disabled) return;
+  setMode("form");
+  ask(button.dataset.formPrompt);
+}));
 input.addEventListener("input", () => {
   input.style.height = "46px";
   input.style.height = Math.min(input.scrollHeight, 130) + "px";
