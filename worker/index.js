@@ -426,9 +426,22 @@ export default {
       return json({ error: "यह API रास्ता उपलब्ध नहीं है।" }, 404);
     }
 
+    // Bound public request bodies before parsing to reduce accidental or abusive memory use.
+    const declaredLength = Number(request.headers.get("content-length") || 0);
+    if (declaredLength > 65536) {
+      return json({ error: "अनुरोध बहुत बड़ा है। संदेश छोटा करके दोबारा भेजें।" }, 413);
+    }
+
     let body;
-    try { body = await request.json(); }
-    catch { return json({ error: "संदेश का डेटा सही नहीं है। दोबारा भेजें।" }, 400); }
+    try {
+      const rawBody = await request.text();
+      if (rawBody.length > 65536) {
+        return json({ error: "अनुरोध बहुत बड़ा है। संदेश छोटा करके दोबारा भेजें।" }, 413);
+      }
+      body = JSON.parse(rawBody);
+    } catch {
+      return json({ error: "संदेश का डेटा सही नहीं है। दोबारा भेजें।" }, 400);
+    }
 
     const message = typeof body.message === "string" ? body.message.trim().slice(0, 4000) : "";
     const clockReply = getIndiaClockReply(message);
