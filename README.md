@@ -2,6 +2,12 @@
 
 India's focused Study & Action Assistant for exams, recruitment, admissions, scholarships, government services, documents and application forms. It is intentionally not a general-purpose chatbot.
 
+## Product modes (current MVP)
+- **BHARAT AI Assistant:** general Hindi-first AI chat.
+- **BHARAT FORM AI:** a separate text-guidance mode for identifying Indian government/service forms and asking focused follow-up questions.
+- FORM AI is currently text-only. Document OCR, private on-device document processing, portal reading, autofill, and Android overlay are not implemented yet.
+- The mode selector is part of the web app; the API and Gemini connection still require live end-to-end testing.
+
 ## First foundation
 - Responsive Hindi-first web app and installable PWA
 - Quick actions for recruitment, forms, documents and schemes
