@@ -10,12 +10,14 @@ Last updated: 2026-11-27
 - Current Form AI is text guidance only. It does not OCR documents, access government portals, autofill, submit forms, or display an Android overlay.
 
 ## Changes in this phase
+- Added a user-triggered real AI test from the app's connection control. App startup still performs only a cheap health check; the paid/quota-consuming model test runs only after a deliberate tap. The UI distinguishes Gemini success from a Cloudflare backup response.
+- Updated the Wrangler model setting from the retired `gemini-2.0-flash` value to `gemini-3.8-flash`. The Worker source currently selects its model in code; keep the configuration and source aligned during the next deployment.
 - Guest chat is no longer persisted to localStorage. Conversation context remains in the current page session only and is lost on refresh.
 - The composer now warns users not to send Aadhaar/PAN numbers, OTPs, passwords, or bank information.
 - This is a privacy improvement for the unauthenticated prototype, not a complete privacy/security solution.
 
 ## Must pass before a public launch
-1. Verify the deployed Worker and run a real end-to-end Gemini request from a phone browser.
+1. Deploy the latest repository Worker code only after reviewing the production origin and security configuration; then run a real end-to-end Gemini request from a phone browser using the new manual AI test control.
 2. Fix and test API security: authentication, per-user authorization, robust rate limiting/abuse controls, request-size limits, and a restrictive CORS allowlist for the actual production frontend domain.
 3. Review the Worker route behavior for live search, streaming, fallback, timeouts, quota errors, and source citations.
 4. Keep secrets only in Cloudflare Worker secrets; scan repository history and rotate any exposed key.
@@ -25,7 +27,7 @@ Last updated: 2026-11-27
 
 ## Current known risks / not yet implemented
 - Chat API currently has no verified user authentication or per-user authorization.
-- Worker CORS is currently wildcard; production must use a controlled origin allowlist.
+- Deployed Worker CORS is currently wildcard; production must use a controlled origin allowlist after the actual frontend origin is confirmed. CORS alone is not authentication.
 - Robust server-side rate limiting has not yet been demonstrated.
 - Chat messages are sent to the AI provider; do not send sensitive identity or banking data.
 - Firebase Auth/database integration is not verified.
