@@ -224,84 +224,6 @@ async function generateWithFallback(key, contents, maxOutputTokens = 1400, useSe
 }
 
  
-function decodeHtml(value) {
-  return String(value || "")
-    .replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'")
-    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&nbsp;/g, " ")
-    .replace(/<[^>]*>/g, "").trim();
-}
-
-function extractDdgUrl(href) {
-  try {
-    const u = new URL(href, "https://html.duckduckgo.com");
-    const redirected = u.searchParams.get("uddg");
-    return redirected ? decodeURIComponent(redirected) : u.href;
-  } catch (_) { return ""; }
-}
-
-async function searchWeb(query) {
-  const q = String(query || "")
-    .replace(/(?:google|web|internet)\s*(?:par|pe|में|पर)\s*(?:search|khoj|खोज|देख|dekh)?/gi, " ")
-    .replace(/(?:search|खोजकर|खोजो|देखकर|dekhkar)\s*(?:karke|करके)?/gi, " ")
-    .replace(/\s+/g, " ").trim().slice(0, 220);
-  const searches = [q || String(query || "").slice(0, 220)];
-  const all = [];
-  for (const term of searches) {
-    const beforeCount = all.length;
-    try {
-      const response = await fetch("https://www.bing.com/search?format=rss&q=" + encodeURIComponent(term), {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; BHARATAI/1.0)", "Accept": "application/rss+xml, application/xml, text/xml" },
-        signal: AbortSignal.timeout(8000),
-        cf: { cacheTtl: 180, cacheEverything: true }
-      });
-      if (!response.ok) continue;
-      const xml = await response.text();
-      const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)];
-      for (const match of items) {
-        const block = match[1];
-        const title = decodeHtml((block.match(/<title>([\s\S]*?)<\/title>/i) || [])[1] || "");
-        const url = decodeHtml((block.match(/<link>([\s\S]*?)<\/link>/i) || [])[1] || "");
-        const snippet = decodeHtml((block.match(/<description>([\s\S]*?)<\/description>/i) || [])[1] || "");
-        if (!title || !/^https?:\/\//i.test(url) || all.some(item => item.url === url)) continue;
-        let host = "";
-        try { host = new URL(url).hostname.toLowerCase(); } catch (_) {}
-        // General-purpose fallback search: keep relevant results for any safe topic.
-        const relevance = title.length > 0 && url.length > 0;
-        if (!relevance) continue;
-        all.push({ title, url, host, snippet });
-        if (all.length - beforeCount >= 6) break;
-      }
-    } catch (_) {}
-    if (all.length >= 12) break;
-  }
-  all.sort((a,b) => Number(/\.(gov\.in|nic\.in)$/.test(b.host)) - Number(/\.(gov\.in|nic\.in)$/.test(a.host)));
-  return all.slice(0, 12);
-}
-
-function buildSearchReply(results) {
-  const chosen = results.slice(0, 8);
-  if (!chosen.length) return "";
-  const lines = chosen.map((item, index) =>
-    (index + 1) + ". " + item.title + "\n" +
-    (item.snippet ? item.snippet + "\n" : "") +
-    "स्रोत: " + item.url
-  );
-  return "मुझे ये ताज़ा वेब परिणाम मिले हैं। नीचे दिए गए स्रोत खोलकर पूरी जानकारी जाँचें:\n\n" + lines.join("\n\n");
-}
-
-function formatSearchContext(results) {
-  return results.map((item, i) =>
-    (i + 1) + ". " + item.title + "\nURL: " + item.url + "\nDomain: " + item.host + "\nSnippet: " + item.snippet
-  ).join("\n\n");
-}
-
-function appendSearchResultSources(reply, results) {
-  if (!reply || !results?.length) return reply;
-  const sources = results.slice(0, 8).map((item, index) =>
-    (index + 1) + ". " + item.title + " — " + item.url
-  ).join("\n");
-  return reply + "\n\nस्रोत (वेब खोज):\n" + sources;
-}
 function needsFreshWebInfo(message) {
   const text = String(message || "").toLowerCase().trim();
   // Recruitment and application questions are time-sensitive even when
@@ -447,17 +369,28 @@ export default {
     }
 
     if (url.pathname === "/health" && request.method === "GET") {
-      if (url.searchParams.get("searchtest") === "1") {
-        const results = await searchWeb("Rajasthan 12th pass government job latest notification");
-        return json({
-          ok: true,
-          searchProvider: "Bing RSS",
-          resultCount: results.length,
-          results: results.map(item => ({ title: item.title, url: item.url, domain: item.host }))
-        });
-      }
       if (!env.GEMINI_API_KEY) {
         return json({ ok: false, aiKeyConfigured: false, error: "Cloudflare में Gemini API key जुड़ी नहीं है।" }, 503);
+      }
+      if (url.searchParams.get("searchtest") === "1") {
+        try {
+          const testHistory = [{ role: "user", parts: [{ text: "Google Search से आज की भारत की ताज़ा प्रमुख खबरें खोजकर संक्षेप में बताओ और स्रोत लिंक दो।" }] }];
+          const response = await callGeminiInteractionsSearch(env.GEMINI_API_KEY, testHistory);
+          if (!response.ok) {
+            return json({ ok: false, searchProvider: "Google Search via Gemini Interactions", httpStatus: response.status, error: await readGeminiError(response) }, 502);
+          }
+          const payload = await response.json();
+          const parsed = extractInteractionReply(payload);
+          return json({
+            ok: Boolean(parsed.reply && parsed.sourceCount > 0),
+            searchProvider: "Google Search via Gemini Interactions",
+            interactionStatus: payload?.status || "",
+            resultCount: parsed.sourceCount,
+            sources: (payload?.steps || []).filter(step => step?.type === "model_output").flatMap(step => step.content || []).flatMap(block => (block.annotations || []).filter(a => a.type === "url_citation").map(a => ({ title: a.title || a.url, url: a.url }))).slice(0, 8)
+          }, parsed.sourceCount > 0 ? 200 : 502);
+        } catch (error) {
+          return json({ ok: false, searchProvider: "Google Search via Gemini Interactions", error: String(error?.message || error).slice(0, 220) }, 502);
+        }
       }
       if (url.searchParams.get("test") !== "1") {
         return json({ ok: true, service: "BHARAT AI API", aiKeyConfigured: true, aiReady: "not_tested" });
@@ -521,56 +454,56 @@ export default {
     history.push({ role: "user", parts: [{ text: message }] });
 
     const freshQuestion = needsFreshWebInfo(message);
-    let webResults = [];
+    const webResults = [];
     const searchContext = "";
-    if (freshQuestion) {
-      // Use the current Gemini Interactions API with its native Google Search tool.
-      const liveSearch = await callGeminiInteractionsSearch(env.GEMINI_API_KEY, history);
-      let livePayload = null;
-      let googleSearchError = "";
-      let parsed = { reply: "", sourceCount: 0 };
+    let liveSearch = null;
+    let livePayload = null;
+    let googleSearchError = "";
+    let parsed = { reply: "", sourceCount: 0 };
+
+    // Give Gemini the native Google Search tool for every question.
+    // The model decides whether current web evidence is actually needed.
+    try {
+      liveSearch = await callGeminiInteractionsSearch(env.GEMINI_API_KEY, history);
       if (liveSearch.ok) {
-        try {
-          livePayload = await liveSearch.json();
-          parsed = extractInteractionReply(livePayload);
-        } catch (error) { googleSearchError = String(error?.message || error); }
+        livePayload = await liveSearch.json();
+        parsed = extractInteractionReply(livePayload);
       } else {
         googleSearchError = await readGeminiError(liveSearch);
       }
-      let freshReply = parsed.reply;
-      let sourceCount = parsed.sourceCount;
-      if (!freshReply || sourceCount === 0) {
-        // Search fallback only; clean command words so the actual subject is searched.
-        webResults = await searchWeb(message);
-        if (webResults.length) {
-          const evidence = formatSearchContext(webResults);
-          const summarized = await generateWithFallback(env.GEMINI_API_KEY, history, 1500, false, evidence);
-          if (summarized.response?.ok) {
-            try {
-              const summaryPayload = await summarized.response.json();
-              freshReply = appendSearchResultSources(extractReply(summaryPayload), webResults);
-            } catch (_) {}
-          }
-          if (!freshReply) freshReply = buildSearchReply(webResults);
-        }
-      }
-      if (!freshReply) {
-        return json({
-          error: "Google की लाइव खोज से भरोसेमंद स्रोत नहीं मिले और वैकल्पिक वेब खोज भी उपलब्ध नहीं है। कृपया थोड़ी देर बाद फिर कोशिश करें।",
-          liveSearchUnavailable: true
-        }, 503);
-      }
-      if (url.pathname === "/api/chat/stream") return clockStream(freshReply);
+    } catch (error) {
+      googleSearchError = String(error?.message || error);
+    }
+
+    if (parsed.reply && (!freshQuestion || parsed.sourceCount > 0)) {
+      const activeModel = parsed.sourceCount > 0 ? PRIMARY_MODEL + " + Google Search" : PRIMARY_MODEL;
+      if (url.pathname === "/api/chat/stream") return clockStream(parsed.reply);
       return json({
-        reply: freshReply,
-        model: sourceCount > 0 ? PRIMARY_MODEL + " + Google Search" : "Bing RSS fallback",
+        reply: parsed.reply,
+        model: activeModel,
         searchDiagnostics: {
-          googleHttpStatus: liveSearch.status,
+          searchProvider: "Google Search via Gemini Interactions",
+          googleHttpStatus: liveSearch?.status || 0,
           interactionStatus: livePayload?.status || "",
-          googleSourceCount: sourceCount,
+          googleSourceCount: parsed.sourceCount,
           googleError: googleSearchError ? googleSearchError.slice(0, 220) : ""
         }
       });
+    }
+
+    // Never silently replace a failed Google Search with another search provider
+    // or an ungrounded model answer for a time-sensitive question.
+    if (freshQuestion) {
+      return json({
+        error: "Google Search से इस ताज़ा सवाल के लिए सत्यापित स्रोत नहीं मिले। अभी सही लाइव जवाब देना संभव नहीं है; थोड़ी देर बाद फिर कोशिश करें।",
+        liveSearchUnavailable: true,
+        searchDiagnostics: {
+          searchProvider: "Google Search via Gemini Interactions",
+          googleHttpStatus: liveSearch?.status || 0,
+          googleSourceCount: parsed.sourceCount,
+          googleError: googleSearchError ? googleSearchError.slice(0, 220) : ""
+        }
+      }, 503);
     }
 
     if (url.pathname === "/api/chat/stream") {
