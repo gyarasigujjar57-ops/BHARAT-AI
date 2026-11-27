@@ -36,3 +36,10 @@
 @keyframes snakeSlither{0%,100%{transform:translateY(2px) rotate(8deg)}50%{transform:translateY(-2px) rotate(-10deg)}}
 @keyframes snakeLead{0%,100%{transform:translateY(1px) rotate(-7deg)}50%{transform:translateY(-2px) rotate(8deg)}}
 @media(prefers-reduced-motion:reduce){.snake-cursor i,.snake-cursor b{animation:none}}
+
+
+/* Two clear product modes: Assistant and Form AI */
+.modebar{display:flex;gap:8px;padding:10px 14px 0;justify-content:center;background:#fff}
+.mode-tab{border:1px solid #dfe8e1;background:#fff;color:#476052;border-radius:12px;padding:10px 14px;font:inherit;font-size:13px;font-weight:650;cursor:pointer}
+.mode-tab.active{background:#eaf5ed;border-color:#16834b;color:#126b3d}
+.mode-hint{padding:6px 14px 9px;text-align:center;color:#77847b;font-size:11px;border-bottom:1px solid #f0f2f0;background:#fff}
