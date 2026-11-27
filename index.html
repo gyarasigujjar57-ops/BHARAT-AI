@@ -20,12 +20,39 @@
   <section class="welcome" id="welcome">
     <div class="welcome-icon">भा</div>
     <h1>नमस्ते! मैं BHARAT AI हूँ।</h1>
-    <p>कुछ भी पूछें — पढ़ाई, विज्ञान, टेक्नोलॉजी, देश-दुनिया, ताज़ा जानकारी और सरकारी फॉर्म।</p>
+    <p>पढ़ाई, टेक्नोलॉजी, देश-दुनिया और रोज़मर्रा के सवालों के लिए आपका AI सहायक।</p>
     <div class="quick-prompts">
-      <button data-q="राजस्थान में 12वीं पास के लिए सरकारी भर्तियाँ बताओ">सरकारी भर्तियाँ</button>
-      <button data-q="मुझे सरकारी फॉर्म भरने में मदद चाहिए">फॉर्म भरने में मदद</button>
-      <button data-q="सरकारी छात्रवृत्ति और योजनाओं की पात्रता बताओ">छात्रवृत्ति / योजनाएँ</button>
-      <button data-q="इस सरकारी फॉर्म के लिए कौन-कौन से दस्तावेज चाहिए?">फॉर्म के दस्तावेज़</button>
+      <button data-q="मुझे AI सीखना शुरू करना है">AI सीखें</button>
+      <button data-q="मुझे पढ़ाई में मदद चाहिए">पढ़ाई</button>
+      <button data-q="भारत के बारे में बताओ">भारत की जानकारी</button>
+    </div>
+  </section>
+  <section class="form-start" id="formStart" hidden>
+    <div class="form-kicker">BHARAT FORM AI</div>
+    <h1>कौन-सा फॉर्म भरना है?</h1>
+    <p class="form-intro">पहले फॉर्म पहचानेंगे, फिर पात्रता और दस्तावेज़ जाँचेंगे। उसके बाद हर पेज पर आपको सही कदम बताएँगे।</p>
+    <label for="formName">फॉर्म / योजना / भर्ती का नाम</label>
+    <input id="formName" type="text" maxlength="120" placeholder="जैसे: जाति प्रमाणपत्र, छात्रवृत्ति, पुलिस भर्ती">
+    <label for="formState">राज्य</label>
+    <select id="formState">
+      <option value="">राज्य चुनें</option>
+      <option>राजस्थान</option><option>उत्तर प्रदेश</option><option>मध्य प्रदेश</option><option>हरियाणा</option><option>दिल्ली</option><option>बिहार</option><option>गुजरात</option><option>महाराष्ट्र</option><option>पंजाब</option><option>उत्तराखंड</option><option>हिमाचल प्रदेश</option><option>झारखंड</option><option>छत्तीसगढ़</option><option>पश्चिम बंगाल</option><option>ओडिशा</option><option>असम</option><option>आंध्र प्रदेश</option><option>तेलंगाना</option><option>कर्नाटक</option><option>केरल</option><option>तमिलनाडु</option><option>गोवा</option><option>सिक्किम</option><option>अरुणाचल प्रदेश</option><option>नागालैंड</option><option>मणिपुर</option><option>मिजोरम</option><option>त्रिपुरा</option><option>मेघालय</option><option>जम्मू और कश्मीर</option><option>लद्दाख</option><option>चंडीगढ़</option><option>पुडुचेरी</option><option>अंडमान और निकोबार</option><option>दादरा और नगर हवेली तथा दमन और दीव</option><option>लक्षद्वीप</option>
+    </select>
+    <label for="formTask">किस काम में मदद चाहिए?</label>
+    <select id="formTask">
+      <option value="फॉर्म पहचानना और सही सरकारी वेबसाइट ढूँढना">फॉर्म पहचानना और सही वेबसाइट ढूँढना</option>
+      <option value="पात्रता जाँचना">पात्रता जाँचना</option>
+      <option value="जरूरी दस्तावेजों की सूची बनाना">जरूरी दस्तावेज़ जानना</option>
+      <option value="फॉर्म के हर फील्ड को समझकर भरने में मदद">फॉर्म के हर हिस्से को समझकर भरना</option>
+      <option value="पूरी आवेदन प्रक्रिया समझना">पूरी आवेदन प्रक्रिया समझना</option>
+    </select>
+    <button type="button" id="startForm" class="form-start-button">फॉर्म सहायता शुरू करें <span>→</span></button>
+    <div class="form-safety">अभी यह संस्करण टेक्स्ट के जरिए मार्गदर्शन देता है। Aadhaar/PAN नंबर, OTP, पासवर्ड या बैंक जानकारी यहाँ न लिखें।</div>
+    <div class="form-shortcuts">
+      <button type="button" data-form-prompt="मुझे सरकारी भर्ती का आवेदन भरना है। पहले सही आधिकारिक नोटिफिकेशन और पात्रता जाँचो।">सरकारी भर्ती</button>
+      <button type="button" data-form-prompt="मुझे जाति / आय / मूल निवास प्रमाणपत्र के लिए आवेदन करना है।">प्रमाणपत्र</button>
+      <button type="button" data-form-prompt="मुझे छात्रवृत्ति का फॉर्म भरना है।">छात्रवृत्ति</button>
+      <button type="button" data-form-prompt="मुझे किसान योजना का आवेदन करना है।">किसान योजना</button>
     </div>
   </section>
 </main>
