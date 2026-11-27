@@ -43,3 +43,19 @@
 .mode-tab{border:1px solid #dfe8e1;background:#fff;color:#476052;border-radius:12px;padding:10px 14px;font:inherit;font-size:13px;font-weight:650;cursor:pointer}
 .mode-tab.active{background:#eaf5ed;border-color:#16834b;color:#126b3d}
 .mode-hint{padding:6px 14px 9px;text-align:center;color:#77847b;font-size:11px;border-bottom:1px solid #f0f2f0;background:#fff}
+
+/* BHARAT FORM AI intake workspace */
+.form-start{max-width:620px;margin:20px auto 26px;padding:22px 18px 20px;border:1px solid #e7eee8;border-radius:20px;background:linear-gradient(180deg,#ffffff,#fbfdfb);box-shadow:0 8px 28px rgba(27,82,46,.05)}
+.form-kicker{font-size:11px;font-weight:800;letter-spacing:.12em;color:#16834b;margin-bottom:8px}
+.form-start h1{font-size:24px;line-height:1.3;margin:0 0 8px;color:#203629}
+.form-intro{font-size:13px;line-height:1.7;color:#6e7c72;margin:0 0 18px}
+.form-start label{display:block;margin:13px 0 6px;font-size:12px;font-weight:700;color:#415448}
+.form-start input,.form-start select{width:100%;height:46px;border:1px solid #dce6de;border-radius:11px;background:#fff;padding:0 12px;font:inherit;font-size:14px;color:#25362b;outline:none}
+.form-start input:focus,.form-start select:focus{border-color:#62a97b;box-shadow:0 0 0 3px rgba(22,131,75,.08)}
+.form-start-button{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;height:48px;margin-top:18px;border:0;border-radius:12px;background:#16834b;color:#fff;font:inherit;font-weight:750;font-size:14px}
+.form-start-button span{font-size:20px}
+.form-safety{margin:12px 0 4px;padding:10px 11px;border-radius:9px;background:#f5f8f5;color:#68766c;font-size:11px;line-height:1.6}
+.form-shortcuts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.form-shortcuts button{border:1px solid #e0e9e2;border-radius:18px;background:#fff;color:#356348;padding:8px 11px;font:inherit;font-size:11px}
+[hidden]{display:none!important}
+@media(max-width:480px){.form-start{margin:10px 0 20px;padding:19px 15px;border-radius:16px}.form-start h1{font-size:22px}}
