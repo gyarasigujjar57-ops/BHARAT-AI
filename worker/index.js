@@ -43,13 +43,13 @@ function parseWebResults(html) {
   const results = [];
   const blocks = String(html || '').split(/class=[\"']result results_links[^\"']*[\"']/i).slice(1);
   for (const block of blocks) {
-    const match = block.match(/<a[^>]+class=[\"'][^\"']*result__a[^\"']*[\"'][^>]+href=[\"']([^\"']+)[\"'][^>]*>([\s\S]*?)<\\/a>/i);
+    const match = block.match(/<a[^>]+class=[\"'][^\"']*result__a[^\"']*[\"'][^>]+href=[\"']([^\"']+)[\"'][^>]*>([\s\S]*?)<[/]a>/i);
     if (!match) continue;
     let href = match[1].replace(/&amp;/g, '&');
     try { const parsed = new URL(href, 'https://html.duckduckgo.com'); const redirect = parsed.searchParams.get('uddg'); if (redirect) href = decodeURIComponent(redirect); } catch (_) {}
     try { const u = new URL(href); if (u.protocol !== 'https:' || u.username || u.password || /^(localhost|127\\.|10\\.|192\\.168\\.)/.test(u.hostname)) continue;
       const title = match[2].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '\"').replace(/\\s+/g, ' ').trim();
-      const sn = block.match(/class=[\"'][^\"']*result__snippet[^\"']*[\"'][^>]*>([\\s\\S]*?)<\\/(?:a|td|div)>/i);
+      const sn = block.match(/class=[\"'][^\"']*result__snippet[^\"']*[\"'][^>]*>([\\s\\S]*?)<[/](?:a|td|div)>/i);
       const snippet = (sn ? sn[1] : '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '\"').replace(/\\s+/g, ' ').trim();
       if (title) results.push({ title, url: u.href, snippet: snippet.slice(0, 500), source: u.hostname, provider: 'DuckDuckGo Web Search' });
     } catch (_) {}
