@@ -87,3 +87,29 @@
 .portal-field-map li{margin:3px 0}
 .portal-privacy{font-size:10px!important;color:#8a6a37!important}
 @media(max-width:480px){.portal-reader{margin:12px 0;padding:15px}}
+
+
+/* Header overflow menu and lightweight utility panels */
+.topbar{position:relative;flex-shrink:0}
+.menu-toggle{flex:0 0 38px;width:38px;height:39px;margin-left:2px;border:1px solid #e4e9e5;border-radius:50%;background:#fff;color:#267447;font-size:25px;line-height:1;cursor:pointer}
+.more-menu{position:absolute;z-index:20;right:12px;top:58px;width:min(245px,calc(100vw - 24px));padding:7px;border:1px solid #e5ebe6;border-radius:15px;background:#fff;box-shadow:0 12px 34px rgba(20,50,30,.16)}
+.more-menu button{display:block;width:100%;padding:12px 13px;border:0;border-radius:9px;background:#fff;text-align:left;color:#26392d;font:inherit;font-size:14px}
+.more-menu button:active,.more-menu button:focus{background:#edf6ef;outline:none}
+.utility-panel{position:absolute;z-index:19;left:12px;right:12px;top:74px;max-height:min(65vh,520px);overflow:auto;border:1px solid #e2eae3;border-radius:16px;background:#fff;box-shadow:0 14px 38px rgba(20,50,30,.18)}
+.utility-head{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;border-bottom:1px solid #edf1ed;color:#24563a}
+.utility-head button{width:32px;height:32px;border:0;border-radius:50%;background:#f3f6f3;font-size:22px;color:#385344}
+.utility-content{padding:13px 15px;color:#435248;font-size:13px;line-height:1.65}
+.utility-content button{display:block;width:100%;margin:7px 0;padding:11px;border:1px solid #e2eae3;border-radius:10px;background:#fafffb;color:#28543a;text-align:left;font:inherit}
+.utility-content .muted{color:#7b877e;font-size:11px}
+.utility-content label{display:block;margin:9px 0;color:#385344}
+.utility-content select{width:100%;padding:10px;border:1px solid #dce5de;border-radius:9px;background:#fff;font:inherit}
+[hidden]{display:none!important}
+
+/* Keep the composer and privacy note in separate rows above Android navigation. */
+.composer{display:grid;grid-template-columns:minmax(0,1fr) 44px;align-items:end;gap:7px 9px;padding:12px 14px max(10px,env(safe-area-inset-bottom));}
+.composer textarea{min-width:0}
+.composer>button{grid-column:2;grid-row:1}
+.composer .disclaimer{position:static;grid-column:1 / -1;grid-row:2;width:100%;padding:0 5px 2px;font-size:9px;line-height:1.35;white-space:normal}
+#chat{scroll-padding-top:12px;scroll-padding-bottom:18px;overflow-anchor:auto}
+.modebar,.mode-hint{flex-shrink:0}
+@media(max-width:380px){.topbar{gap:8px;padding-left:12px;padding-right:12px}.mode-tab{padding:9px 10px;font-size:12px}.composer{padding-left:10px;padding-right:10px}}
