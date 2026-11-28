@@ -57,6 +57,22 @@
       <button type="button" id="copyOcr" class="document-copy" disabled>संवेदनशील नंबर हटाकर टेक्स्ट कॉपी करें</button>
       <div class="ocr-privacy">ध्यान दें: OCR की भाषा फ़ाइलें पहली बार इंटरनेट से डाउनलोड होंगी। कॉपी करने से पहले नाम, जन्मतिथि, पता और अन्य निजी जानकारी भी खुद हटाएँ। OCR गलती कर सकता है; मूल दस्तावेज़ से मिलान ज़रूरी है।</div>
     </div>
+
+    <section class="portal-reader" id="portalReader" aria-labelledby="portalReaderTitle">
+      <div class="portal-reader-kicker">अगला चरण · PORTAL READER</div>
+      <h2 id="portalReaderTitle">सरकारी वेबसाइट का फॉर्म समझें</h2>
+      <p>पहले आधिकारिक पोर्टल खोलें। वहाँ खाली फॉर्म के labels/text कॉपी करके नीचे डालें। BHARAT AI संभावित fields की सूची इसी फोन पर बनाएगा।</p>
+      <label for="portalUrl">आधिकारिक वेबसाइट का HTTPS लिंक</label>
+      <input id="portalUrl" type="url" inputmode="url" placeholder="https://…gov.in या https://…nic.in">
+      <button type="button" id="openPortal" class="document-button">सरकारी पोर्टल खोलें ↗</button>
+      <div id="portalStatus" class="portal-status" role="status">सुरक्षा के लिए अभी केवल HTTPS वाले .gov.in और .nic.in डोमेन खुलेंगे।</div>
+      <label for="portalPageText">खाली फॉर्म के labels / पेज का टेक्स्ट</label>
+      <textarea id="portalPageText" rows="5" maxlength="12000" placeholder="उदाहरण: Applicant Name:&#10;Date of Birth:&#10;Category:&#10;District:"></textarea>
+      <button type="button" id="mapPortalFields" class="document-button">फॉर्म के fields पहचानें</button>
+      <div id="portalFieldMap" class="portal-field-map" aria-live="polite">पहचाने गए fields यहाँ दिखेंगे।</div>
+      <button type="button" id="sendPortalMap" class="document-copy" disabled>जाँची हुई field-list चैट में डालें</button>
+      <p class="portal-privacy">सिर्फ खाली फॉर्म का टेक्स्ट डालें। भरा हुआ आवेदन, नाम, जन्मतिथि, पता, मोबाइल, पहचान नंबर, OTP या कोई निजी value न डालें। यह सुविधा fields पहचानने में मदद करती है; वेबसाइट को अपने-आप नहीं पढ़ती और न ही फॉर्म भरती है।</p>
+    </section>
     <div class="form-safety">अभी यह संस्करण टेक्स्ट के जरिए मार्गदर्शन देता है। Aadhaar/PAN नंबर, OTP, पासवर्ड या बैंक जानकारी यहाँ न लिखें।</div>
     <div class="form-shortcuts">
       <button type="button" data-form-prompt="मुझे सरकारी भर्ती का आवेदन भरना है। पहले सही आधिकारिक नोटिफिकेशन और पात्रता जाँचो।">सरकारी भर्ती</button>
