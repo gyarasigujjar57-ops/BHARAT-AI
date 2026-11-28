@@ -10,7 +10,19 @@
 <header class="topbar">
   <div class="brandmark">भा</div><div class="brandtext"><strong>BHARAT AI</strong><button id="connection" class="connection" type="button" aria-live="polite">AI कनेक्शन जाँचें</button></div>
   <button id="reset" class="newchat" aria-label="नई चैट" title="नई चैट">＋</button>
+  <button id="menuToggle" class="menu-toggle" aria-label="अधिक विकल्प" aria-expanded="false" title="अधिक विकल्प">⋮</button>
 </header>
+<div id="moreMenu" class="more-menu" hidden>
+  <button type="button" data-menu-action="new">＋ नई चैट</button>
+  <button type="button" data-menu-action="save">▣ Draft सेव करें</button>
+  <button type="button" data-menu-action="drafts">▤ Drafts खोलें</button>
+  <button type="button" data-menu-action="settings">⚙ Settings</button>
+  <button type="button" data-menu-action="help">ⓘ Help और Privacy</button>
+</div>
+<section id="utilityPanel" class="utility-panel" hidden aria-live="polite">
+  <div class="utility-head"><strong id="utilityTitle">BHARAT AI</strong><button id="utilityClose" type="button" aria-label="बंद करें">×</button></div>
+  <div id="utilityContent" class="utility-content"></div>
+</section>
 <nav class="modebar" aria-label="काम चुनें">
   <button type="button" class="mode-tab active" data-mode="assistant" aria-pressed="true">BHARAT AI Assistant</button>
   <button type="button" class="mode-tab" data-mode="form" aria-pressed="false">BHARAT FORM AI</button>
