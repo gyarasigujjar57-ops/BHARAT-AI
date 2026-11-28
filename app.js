@@ -408,7 +408,90 @@ document.querySelectorAll("[data-form-prompt]").forEach(button => button.addEven
   setMode("form");
   ask(button.dataset.formPrompt);
 }));
-input.addEventListener("input", () => {
+
+// Official portal helper: allowlisted HTTPS link + local field-label mapping.
+// It deliberately does not proxy/fetch arbitrary user URLs or automate form submission.
+function isAllowedGovernmentPortal(raw) {
+  try {
+    const url = new URL(raw);
+    const host = url.hostname.toLowerCase();
+    const trustedDomain = host === "gov.in" || host.endsWith(".gov.in") ||
+      host === "nic.in" || host.endsWith(".nic.in");
+    if (url.protocol !== "https:" || !trustedDomain || url.username || url.password ||
+        (url.port && url.port !== "443")) return null;
+    return url;
+  } catch (_) { return null; }
+}
+document.querySelector("#openPortal")?.addEventListener("click", () => {
+  const field = document.querySelector("#portalUrl");
+  const status = document.querySelector("#portalStatus");
+  const url = isAllowedGovernmentPortal(field?.value.trim() || "");
+  if (!url) {
+    status.textContent = "यह लिंक स्वीकार नहीं हुआ। पूरा HTTPS लिंक दें और जाँचें कि डोमेन .gov.in या .nic.in पर खत्म होता है।";
+    return;
+  }
+  const opened = window.open(url.href, "_blank", "noopener,noreferrer");
+  status.textContent = opened === null
+    ? "ब्राउज़र ने नया टैब रोका हो सकता है। अपने ब्राउज़र की अनुमति जाँचें।"
+    : "आधिकारिक डोमेन लिंक नए टैब में खोला गया।";
+});
+const portalFieldTerms = [
+  ["नाम", /\bname\b|applicant|नाम|आवेदक|प्रार्थी/i],
+  ["पिता / माता का नाम", /father|mother|guardian|पिता|माता|अभिभावक/i],
+  ["जन्मतिथि", /date of birth|\bdob\b|जन्म.?तिथि/i],
+  ["लिंग", /gender|sex|लिंग/i],
+  ["श्रेणी", /category|caste|वर्ग|श्रेणी|जाति/i],
+  ["पता", /address|पता|मकान|गली/i],
+  ["जिला / तहसील", /district|tehsil|तहसील|जिला|ब्लॉक/i],
+  ["पिन कोड", /pin ?code|postal code|पिन.?कोड/i],
+  ["मोबाइल / ईमेल", /mobile|phone|email|मोबाइल|दूरभाष|ई.?मेल/i],
+  ["शैक्षणिक योग्यता", /qualification|education|शिक्षा|योग्यता|कक्षा|बोर्ड/i],
+  ["रोल नंबर / अंक", /roll ?no|marks|percentage|रोल.?नंबर|अंक|प्रतिशत/i],
+  ["फोटो / हस्ताक्षर", /photo|photograph|signature|फोटो|हस्ताक्षर/i],
+  ["बैंक विवरण", /bank|ifsc|account|बैंक|खाता/i]
+];
+let latestPortalFieldLabels = [];
+document.querySelector("#mapPortalFields")?.addEventListener("click", () => {
+  const raw = document.querySelector("#portalPageText")?.value || "";
+  const output = document.querySelector("#portalFieldMap");
+  const sendMap = document.querySelector("#sendPortalMap");
+  const lines = raw.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const found = new Set();
+  for (const line of lines) {
+    // Only retain a possible label, never the text after a colon (which may be a value).
+    const label = line.split(/[:：]/, 1)[0].replace(/[＊*•·]+$/g, "").trim();
+    if (!label || label.length > 90) continue;
+    if (portalFieldTerms.some(([, pattern]) => pattern.test(label))) found.add(label);
+  }
+  latestPortalFieldLabels = [...found].slice(0, 40);
+  output.replaceChildren();
+  if (!latestPortalFieldLabels.length) {
+    output.textContent = "कोई साफ field-label नहीं मिला। खाली फॉर्म से label को अलग-अलग लाइन में कॉपी करें; निजी values न डालें।";
+    sendMap.disabled = true;
+    return;
+  }
+  const heading = document.createElement("p");
+  heading.textContent = "संभावित fields (" + latestPortalFieldLabels.length + ") — मूल वेबसाइट से मिलान करें:";
+  output.append(heading);
+  const list = document.createElement("ul");
+  latestPortalFieldLabels.forEach(label => {
+    const item = document.createElement("li");
+    item.textContent = label;
+    list.append(item);
+  });
+  output.append(list);
+  sendMap.disabled = false;
+});
+document.querySelector("#sendPortalMap")?.addEventListener("click", () => {
+  if (!latestPortalFieldLabels.length || send.disabled) return;
+  setMode("form");
+  const summary = "मैंने आधिकारिक फॉर्म के खाली पेज से ये संभावित field labels जाँचे हैं। हर field का अर्थ और कौन-सी जानकारी/दस्तावेज़ चाहिए, एक-एक करके समझाओ। कोई value मत मानना।\n" +
+    latestPortalFieldLabels.map((label, index) => (index + 1) + ". " + label).join("\n");
+  input.value = summary;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.focus();
+});
+\ninput.addEventListener("input", () => {
   input.style.height = "46px";
   input.style.height = Math.min(input.scrollHeight, 130) + "px";
 });
