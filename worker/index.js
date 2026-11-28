@@ -179,7 +179,10 @@ function makeSearchContext(results) {
     "\nURL: " + item.url
   ).join("\n\n");
 }
-function appendSearchSources(reply, results) {\n  // Do not append generic source dumps; the model adds a link only when essential.\n  return reply;\n}
+function appendSearchSources(reply, results) {
+  // Do not append generic source dumps; the model adds a link only when essential.
+  return reply;
+}
 function toGeminiContents(history) {
   return history.map(item => ({
     role: item.role === "model" ? "model" : "user",
