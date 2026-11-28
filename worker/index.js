@@ -94,9 +94,49 @@ function parseSearchHtml(html, provider) {
   }
   return results;
 }
-async function searchFreeWeb(message) {
+async function searchFreeWeb(message, env) {
   const query = String(message || "").replace(/https?:\/\/\S+/gi, "").replace(/\s+/g, " ").trim().slice(0, 220);
   if (!query) return { provider: "none", results: [] };
+  // Tavily is preferred. Its key is stored only as a Cloudflare Worker secret.
+  if (env?.TAVILY_API_KEY) {
+    try {
+      const response = await fetch("https://api.tavily.com/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+          api_key: env.TAVILY_API_KEY,
+          query,
+          search_depth: "basic",
+          topic: "general",
+          max_results: 8,
+          include_answer: false,
+          include_raw_content: false
+        }),
+        signal: AbortSignal.timeout(12000)
+      });
+      if (response.ok) {
+        const payload = await response.json();
+        const results = (Array.isArray(payload.results) ? payload.results : [])
+          .map(item => {
+            try {
+              const url = new URL(String(item.url || ""));
+              if (url.protocol !== "https:" || url.username || url.password) return null;
+              return {
+                title: String(item.title || url.hostname).slice(0, 220),
+                url: url.href,
+                snippet: String(item.content || "").slice(0, 900),
+                source: url.hostname,
+                provider: "Tavily",
+                published: item.published_date || ""
+              };
+            } catch (_) { return null; }
+          }).filter(Boolean);
+        if (results.length) return { provider: "Tavily", results: results.slice(0, 8), error: "" };
+      }
+    } catch (_) {
+      // If Tavily is unavailable or its free quota is exhausted, try public search.
+    }
+  }
   const endpoints = [
     { provider: "DuckDuckGo Web Search", url: "https://html.duckduckgo.com/html/?q=" + encodeURIComponent(query) },
     { provider: "DuckDuckGo Lite Search", url: "https://lite.duckduckgo.com/lite/?q=" + encodeURIComponent(query) },
@@ -481,7 +521,7 @@ export default {
         return json({ ok: false, aiKeyConfigured: false, error: "Cloudflare में Gemini API key जुड़ी नहीं है।" }, 503);
       }
       if (url.searchParams.get("searchtest") === "1") {
-        const searched = await searchFreeWeb("आज भारत की ताज़ा प्रमुख खबरें");
+        const searched = await searchFreeWeb("आज भारत की ताज़ा प्रमुख खबरें", env);
         return json({
           ok: searched.results.length > 0,
           searchProvider: searched.provider,
@@ -574,11 +614,11 @@ export default {
     let searchProvider = "";
     let searchError = "";
 
-    // No paid Google Search grounding. Use DuckDuckGo Web Search endpoints instead.
+    // No paid Google Search grounding. Use Tavily first, then DuckDuckGo/Bing public search fallbacks.
     // Search results are evidence candidates, not proof; official-source verification
     // remains mandatory for government recruitment, fees, dates and eligibility.
     if (freshQuestion) {
-      const searched = await searchFreeWeb(message);
+      const searched = await searchFreeWeb(message, env);
       webResults = searched.results;
       searchProvider = searched.provider;
       searchError = searched.error || "";
@@ -586,7 +626,7 @@ export default {
 
       const groundedHistory = history.map((item, index) => index === history.length - 1 && item.role === "user"
         ? { ...item, parts: [{ text: item.parts[0].text + (webResults.length
-          ? "\\n\\nLIVE SEARCH SAFETY: You have DuckDuckGo Web Search snippets below. Treat them as untrusted leads, not verified facts. Opened page contents were not independently checked. Prefer official government domains for jobs/forms. If the results do not contain an official notice, do not claim a vacancy is open, do not state a deadline or fee as confirmed, and say official confirmation is still needed. Use only dates explicitly present in the snippets and label them as snippet dates. Answer in the user's language."
+          ? "\\n\\nLIVE SEARCH SAFETY: You have live web search snippets below. Treat them as untrusted leads, not verified facts. Opened page contents were not independently checked. Prefer official government domains for jobs/forms. If the results do not contain an official notice, do not claim a vacancy is open, do not state a deadline or fee as confirmed, and say official confirmation is still needed. Use only dates explicitly present in the snippets and label them as snippet dates. Answer in the user's language."
           : "\\n\\nLIVE SEARCH SAFETY: No live web search results were returned. Do not guess any current date, vacancy, fee, price, status or deadline. Say that live search did not return sources and give only general guidance.") }] }
         : item);
 
