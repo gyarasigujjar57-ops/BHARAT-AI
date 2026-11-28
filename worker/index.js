@@ -644,6 +644,11 @@ export default {
           : "\n\nLIVE SEARCH SAFETY: No live search results were returned. Do not guess current facts; say that official live sources could not be found.") }] }
         : item);
       const recruitmentQuestion = isRecruitmentSearch(message);
+      if (recruitmentQuestion && webResults.length === 0) {
+        const safeReply = "आपका सवाल सरकारी भर्ती के बारे में है। अभी खोज में कोई ऐसी आधिकारिक सरकारी अधिसूचना नहीं मिली जिसे खुली भर्ती के रूप में पक्का बताया जा सके। इसलिए मैं किसी कंपनी या निजी जॉब वेबसाइट की जानकारी को सरकारी भर्ती बताकर नहीं दूँगा। आप चाहें तो राज्य या विभाग (जैसे राजस्थान, रेलवे, SSC, सेना) का नाम लिखें; मैं उसी के आधिकारिक स्रोतों पर खोज सीमित करूँगा।";
+        if (url.pathname === "/api/chat/stream") return clockStream(safeReply);
+        return json({ reply: safeReply, model: "BHARAT AI verified-search guard", liveSearchUsed: false, liveSearchUnavailable: true, searchDiagnostics: { searchProvider, resultCount: 0, error: searchError } });
+      }
       const warning = webResults.length
         ? (recruitmentQuestion
           ? "आधिकारिक सरकारी डोमेन पर खोज के नतीजे मिले हैं। नीचे केवल उन्हीं स्रोतों के आधार पर जानकारी दें; नोटिस में न मिले तथ्य न जोड़ें।\n\n"
