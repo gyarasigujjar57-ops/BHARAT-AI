@@ -14,18 +14,29 @@ function setMode(mode) {
     tab.classList.toggle("active", selected);
     tab.setAttribute("aria-pressed", String(selected));
   });
-  const formStart = document.querySelector("#formStart");
   const welcome = document.querySelector("#welcome");
-  if (formStart && welcome && !chat.querySelector(".message")) {
-    welcome.hidden = activeMode === "form";
-    formStart.hidden = activeMode !== "form";
-  }
+  const welcomeTitle = document.querySelector("#welcomeTitle");
+  const welcomeDescription = document.querySelector("#welcomeDescription");
+  const quick1 = document.querySelector("#quickPrompt1");
+  const quick2 = document.querySelector("#quickPrompt2");
+  const quick3 = document.querySelector("#quickPrompt3");
+  if (welcome && !chat.querySelector(".message")) welcome.hidden = false;
   if (activeMode === "form") {
-    modeHint.textContent = "फॉर्म पहचानें → पात्रता जाँचें → दस्तावेज़ तैयार करें → आवेदन में मदद लें";
-    input.placeholder = "फॉर्म या आवेदन से जुड़ा सवाल लिखें…";
+    modeHint.textContent = "अब इसी चैट में फॉर्म की पूरी मदद मिलेगी";
+    input.placeholder = "बताएँ कौन-सा फॉर्म भरना है…";
+    if (welcomeTitle) welcomeTitle.textContent = "कौन-सा फॉर्म भरना है?";
+    if (welcomeDescription) welcomeDescription.textContent = "बस चैट में फॉर्म या योजना का नाम लिखें। BHARAT FORM AI आधिकारिक जानकारी जाँचेगा, जरूरी सवाल एक-एक करके पूछेगा और आवेदन के हर चरण में मदद करेगा।";
+    if (quick1) { quick1.textContent = "सरकारी भर्ती"; quick1.dataset.q = "मुझे सरकारी भर्ती का फॉर्म भरना है। पहले आधिकारिक नोटिफिकेशन और पात्रता जाँचो।"; }
+    if (quick2) { quick2.textContent = "प्रमाणपत्र"; quick2.dataset.q = "मुझे जाति, आय या मूल निवास प्रमाणपत्र का आवेदन करना है।"; }
+    if (quick3) { quick3.textContent = "छात्रवृत्ति"; quick3.dataset.q = "मुझे छात्रवृत्ति का फॉर्म भरना है।"; }
   } else {
     modeHint.textContent = "सामान्य सवाल, पढ़ाई, टेक्नोलॉजी और जानकारी के लिए";
     input.placeholder = "कुछ भी पूछें — ज़रूरत पड़ने पर BHARAT AI वेब पर खोजे...";
+    if (welcomeTitle) welcomeTitle.textContent = "नमस्ते! मैं BHARAT AI हूँ।";
+    if (welcomeDescription) welcomeDescription.textContent = "पढ़ाई, टेक्नोलॉजी, देश-दुनिया और रोज़मर्रा के सवालों के लिए आपका AI सहायक।";
+    if (quick1) { quick1.textContent = "AI सीखें"; quick1.dataset.q = "मुझे AI सीखना शुरू करना है"; }
+    if (quick2) { quick2.textContent = "पढ़ाई"; quick2.dataset.q = "मुझे पढ़ाई में मदद चाहिए"; }
+    if (quick3) { quick3.textContent = "भारत की जानकारी"; quick3.dataset.q = "भारत के बारे में बताओ"; }
   }
 }
 modeTabs.forEach(tab => tab.addEventListener("click", () => setMode(tab.dataset.mode)));
@@ -243,9 +254,8 @@ async function ask(question) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        message: activeMode === "form"
-          ? "BHARAT FORM AI MODE: You are BHARAT FORM AI, a careful India government-form assistant. Follow this workflow: identify the exact form and department; use live Google Search and official sources to verify portal, current dates, fees, eligibility and document rules; ask one focused question at a time for missing non-sensitive facts; show eligibility as meets / does not meet / unknown with reasons; create a tailored document checklist; then explain each page and field step by step. Never guess or invent a portal, deadline, eligibility result or required document. Do not ask for Aadhaar/PAN numbers, OTPs, passwords, bank credentials, UPI PIN, signatures or biometrics. This MVP can extract text from selected images/PDFs locally in the browser, but it does not automatically send OCR text to the AI. Only analyze non-sensitive text the user deliberately shares after review. Do not claim secure document storage, website access, autofill, submission or an overlay. The user performs OTP, CAPTCHA, payment, declarations and final submission.\n\nUser request: " + question
-          : question,
+        message: activeMode === "form" ? "BHARAT FORM AI MODE: " + question : question,
+        mode: activeMode,
         history, language: "hi"
       }),
       signal: controller.signal
@@ -508,9 +518,8 @@ document.querySelector("#reset").addEventListener("click", () => {
   if (send.disabled) return;
   chat.querySelectorAll(".message").forEach(message => message.remove());
   const welcome = document.querySelector("#welcome");
-  const formStart = document.querySelector("#formStart");
-  if (welcome) welcome.hidden = activeMode === "form";
-  if (formStart) formStart.hidden = activeMode !== "form";
+  if (welcome) welcome.hidden = false;
+  setMode(activeMode);
   input.focus();
 });
 input.addEventListener("keydown", event => {
