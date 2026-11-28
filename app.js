@@ -100,7 +100,7 @@ function renderMarkdown(element, markdown) {
     const numbered = line.match(/^\s*\d+[.)]\s+(.+)$/);
     if (heading) {
       closeList();
-      const h = document.createElement("h" + Math.min(heading[1].length + 2, 4));
+      const h = document.createElement("h" + heading[1].length);
       appendInline(h, heading[2]); element.append(h);
     } else if (bullet || numbered) {
       const kind = bullet ? "ul" : "ol";
@@ -121,11 +121,7 @@ function renderMarkdown(element, markdown) {
 async function readLiveReply(response, element) {
   const streamText = document.createElement("span");
   streamText.className = "stream-text";
-  const snake = document.createElement("span");
-  snake.className = "snake-cursor";
-  snake.setAttribute("aria-hidden", "true");
-  snake.innerHTML = "<i></i><i></i><i></i><i></i><b></b>";
-  element.replaceChildren(streamText, snake);
+  element.replaceChildren(streamText);
 
   if (!response.body?.getReader) {
     const data = await response.json();
@@ -168,7 +164,6 @@ async function readLiveReply(response, element) {
     reader.releaseLock();
   }
 
-  snake.remove();
   if (fullText.trim()) renderMarkdown(element, fullText);
   return fullText;
 }
@@ -220,7 +215,7 @@ async function ask(question) {
   const reply = addMessage("", "bot");
   reply.classList.add("thinking");
   reply.setAttribute("aria-label", "BHARAT AI जवाब तैयार कर रहा है");
-  reply.innerHTML = '<span class="snake-loader" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><b></b></span>';
+  reply.textContent = "जवाब तैयार कर रहा हूँ…";
   reply.dataset.pending = "true";
   send.disabled = true;
   input.disabled = true;
