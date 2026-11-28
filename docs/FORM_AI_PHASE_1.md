@@ -39,6 +39,6 @@
  
 ## Phase 2 — safe portal reader prototype (repository implementation)
 - Added a government portal link opener restricted to HTTPS `.gov.in` and `.nic.in` hostnames.
-- Added a local blank-page text field mapper. It keeps possible labels only (text before a colon), matches common English/Hindi form labels, and passes only the label list into the chat composer after a separate user tap.
+- Added a local blank-page text field mapper. It matches common English/Hindi labels to a fixed set of generic categories; it never forwards raw pasted lines or values. Only those generic categories can be placed into the chat composer after a separate user tap.
 - The user must manually open the portal, copy text from a blank page, and review the detected labels. The prototype does not fetch website HTML, inspect authenticated pages, autofill fields, or submit applications.
 - This boundary is intentional: arbitrary server-side URL fetching can create SSRF risk; see OWASP's SSRF prevention guidance.
