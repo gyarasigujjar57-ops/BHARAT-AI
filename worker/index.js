@@ -8,7 +8,7 @@ const json = (value, status = 200) => new Response(JSON.stringify(value), {
   headers: { "Content-Type": "application/json; charset=utf-8", ...cors, "Cache-Control": "no-store" }
 });
 
-const PRIMARY_MODEL = "gemini-3.8-flash";
+const PRIMARY_MODEL = "gemini-3.8-flash"; // Free-tier text generation only; no paid grounding tools.
 const FALLBACK_MODEL = "gemini-3.5-flash-lite";
 const FORM_AI_SYSTEM = "\n\nBHARAT FORM AI WORKFLOW (follow whenever the latest user message begins with BHARAT FORM AI MODE:)\n1. Identify the exact form, scheme, recruitment or service and responsible department. If the name is vague, ask one short clarification.\n2. For current eligibility, fees, deadlines, portal URLs and document rules, use live Google Search and prioritize the official government/department portal or official notification. Cite the official URL and date. Never invent an official link or say an application is open unless the official source confirms it.\n3. Check eligibility in a table with requirement, user-provided fact, status (meets / does not meet / unknown) and evidence. Ask only for missing non-sensitive details, one focused question at a time. Mark unknown rather than guessing.\n4. Give a tailored document checklist. Do not ask the user to paste Aadhaar/PAN numbers, OTPs, passwords, bank account details, UPI PINs, signatures, biometrics or full document images in chat. Do not claim files were read unless an actual secure document-reading tool ran.\n5. Guide the user page-by-page and field-by-field. Explain what a field means and what kind of value the official form expects. Never fabricate values, select declarations on behalf of the user, or claim to control a website/browser unless a real portal automation tool is connected. The user performs OTP, CAPTCHA, biometric, payment, declaration and final submit actions.\n6. End each stage with a short checklist of what is confirmed and what is still missing. If the portal or official rule cannot be verified, pause and say so.\nCURRENT MVP LIMIT: The browser can extract text locally from selected images/PDFs, but OCR output stays on the device and is not automatically sent to the AI. OCR accuracy is not verified. There is no secure document vault, government portal browser, website autofill or Android overlay. Never claim to access uploaded documents or operate a portal.";
 function getSystemInstruction(history) {
@@ -67,6 +67,81 @@ function extractInteractionReply(payload) {
       .map((source, index) => (index + 1) + ". " + source.title + " — " + source.uri).join("\n");
   }
   return { reply, sourceCount: sources.length };
+}
+
+
+function decodeXml(value) {
+  return String(value || "")
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+function xmlTag(block, tag) {
+  const match = block.match(new RegExp("<" + tag + "(?:\\s[^>]*)?>([\\s\\S]*?)</" + tag + ">", "i"));
+  return match ? decodeXml(match[1]) : "";
+}
+function parseRssItems(xml, provider) {
+  const items = [];
+  const blocks = xml.match(/<item\b[\s\S]*?<\/item>/gi) || [];
+  for (const block of blocks) {
+    const title = xmlTag(block, "title");
+    const link = xmlTag(block, "link");
+    const description = xmlTag(block, "description");
+    const pubDate = xmlTag(block, "pubDate");
+    const source = xmlTag(block, "source");
+    if (!title || !link || !/^https:\/\//i.test(link)) continue;
+    items.push({ title, url: link, snippet: description.slice(0, 500), published: pubDate, source: source || new URL(link).hostname, provider });
+  }
+  return items;
+}
+async function searchFreeWeb(message) {
+  const query = String(message || "").replace(/https?:\/\/\S+/gi, "").replace(/\s+/g, " ").trim().slice(0, 220);
+  if (!query) return { provider: "none", results: [] };
+  const endpoints = [
+    { provider: "Bing public RSS", url: "https://www.bing.com/search?format=rss&q=" + encodeURIComponent(query) },
+    { provider: "Google News RSS", url: "https://news.google.com/rss/search?q=" + encodeURIComponent(query) + "&hl=hi&gl=IN&ceid=IN:hi" }
+  ];
+  const settled = await Promise.allSettled(endpoints.map(async endpoint => {
+    const response = await fetch(endpoint.url, {
+      headers: { "Accept": "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8", "User-Agent": "BHARAT-AI/1.0 (public RSS reader)" },
+      signal: AbortSignal.timeout(9000)
+    });
+    if (!response.ok) throw new Error(endpoint.provider + " HTTP " + response.status);
+    const xml = await response.text();
+    return parseRssItems(xml, endpoint.provider);
+  }));
+  const results = [];
+  const seen = new Set();
+  for (const outcome of settled) {
+    if (outcome.status !== "fulfilled") continue;
+    for (const item of outcome.value) {
+      const key = item.url.split("#")[0];
+      if (seen.has(key)) continue;
+      seen.add(key);
+      results.push(item);
+      if (results.length >= 8) break;
+    }
+    if (results.length >= 8) break;
+  }
+  const provider = [...new Set(results.map(item => item.provider))].join(" + ") || "Public RSS search";
+  return { provider, results: results.slice(0, 8) };
+}
+function makeSearchContext(results) {
+  return results.map((item, index) =>
+    "[" + (index + 1) + "] " + item.title + "\nPublisher: " + item.source +
+    (item.published ? "\nPublished: " + item.published : "") +
+    (item.snippet ? "\nSnippet: " + item.snippet : "") +
+    "\nURL: " + item.url
+  ).join("\n\n");
+}
+function appendSearchSources(reply, results) {
+  if (!results.length) return reply;
+  return reply + "\n\n**वेब पर मिले स्रोत (स्वतंत्र रूप से जाँचें):**\n" +
+    results.slice(0, 6).map((item, index) =>
+      (index + 1) + ". " + item.title + " — " + item.url +
+      (item.published ? " (" + item.published + ")" : "")
+    ).join("\n");
 }
 
 function toGeminiContents(history) {
@@ -380,24 +455,13 @@ export default {
         return json({ ok: false, aiKeyConfigured: false, error: "Cloudflare में Gemini API key जुड़ी नहीं है।" }, 503);
       }
       if (url.searchParams.get("searchtest") === "1") {
-        try {
-          const testHistory = [{ role: "user", parts: [{ text: "Google Search से आज की भारत की ताज़ा प्रमुख खबरें खोजकर संक्षेप में बताओ और स्रोत लिंक दो।" }] }];
-          const response = await callGeminiInteractionsSearch(env.GEMINI_API_KEY, testHistory);
-          if (!response.ok) {
-            return json({ ok: false, searchProvider: "Google Search via Gemini Interactions", httpStatus: response.status, error: await readGeminiError(response) }, 502);
-          }
-          const payload = await response.json();
-          const parsed = extractInteractionReply(payload);
-          return json({
-            ok: Boolean(parsed.reply && parsed.sourceCount > 0),
-            searchProvider: "Google Search via Gemini Interactions",
-            interactionStatus: payload?.status || "",
-            resultCount: parsed.sourceCount,
-            sources: (payload?.steps || []).filter(step => step?.type === "model_output").flatMap(step => step.content || []).flatMap(block => (block.annotations || []).filter(a => a.type === "url_citation").map(a => ({ title: a.title || a.url, url: a.url }))).slice(0, 8)
-          }, parsed.sourceCount > 0 ? 200 : 502);
-        } catch (error) {
-          return json({ ok: false, searchProvider: "Google Search via Gemini Interactions", error: String(error?.message || error).slice(0, 220) }, 502);
-        }
+        const searched = await searchFreeWeb("आज भारत की ताज़ा प्रमुख खबरें");
+        return json({
+          ok: searched.results.length > 0,
+          searchProvider: searched.provider,
+          resultCount: searched.results.length,
+          sources: searched.results.slice(0, 5).map(item => ({ title: item.title, url: item.url, publisher: item.source }))
+        }, searched.results.length > 0 ? 200 : 502);
       }
       if (url.searchParams.get("test") !== "1") {
         return json({ ok: true, service: "BHARAT AI API", aiKeyConfigured: true, aiReady: "not_tested" });
@@ -478,81 +542,58 @@ export default {
     history.push({ role: "user", parts: [{ text: message }] });
 
     const freshQuestion = needsFreshWebInfo(message);
-    const webResults = [];
-    const searchContext = "";
-    let liveSearch = null;
-    let livePayload = null;
-    let googleSearchError = "";
-    let parsed = { reply: "", sourceCount: 0 };
+    let webResults = [];
+    let searchContext = "";
+    let searchProvider = "";
+    let searchError = "";
 
-    // Use Google Search only for requests that need current/live facts.
-    // Ordinary chat goes straight to the streaming model to avoid unnecessary delay.
+    // No paid Google Search grounding. Use public RSS search endpoints instead.
+    // Search results are evidence candidates, not proof; official-source verification
+    // remains mandatory for government recruitment, fees, dates and eligibility.
     if (freshQuestion) {
-      try {
-        liveSearch = await callGeminiInteractionsSearch(env.GEMINI_API_KEY, history);
-        if (liveSearch.ok) {
-          livePayload = await liveSearch.json();
-          parsed = extractInteractionReply(livePayload);
-        } else {
-          googleSearchError = await readGeminiError(liveSearch);
-        }
-      } catch (error) {
-        googleSearchError = String(error?.message || error);
-      }
-    }
+      const searched = await searchFreeWeb(message);
+      webResults = searched.results;
+      searchProvider = searched.provider;
+      searchContext = makeSearchContext(webResults);
 
-    if (freshQuestion && parsed.reply && parsed.sourceCount > 0) {
-      const activeModel = parsed.sourceCount > 0 ? PRIMARY_MODEL + " + Google Search" : PRIMARY_MODEL;
-      if (url.pathname === "/api/chat/stream") return clockStream(parsed.reply);
-      return json({
-        reply: parsed.reply,
-        model: activeModel,
-        searchDiagnostics: {
-          searchProvider: "Google Search via Gemini Interactions",
-          googleHttpStatus: liveSearch?.status || 0,
-          interactionStatus: livePayload?.status || "",
-          googleSourceCount: parsed.sourceCount,
-          googleError: googleSearchError ? googleSearchError.slice(0, 220) : ""
-        }
-      });
-    }
-
-    // If live search fails, still provide useful general guidance without inventing current facts.
-    // The answer is explicitly marked unverified and must direct the user to the official notice.
-    if (freshQuestion) {
-      const safeHistory = history.map((item, index) => index === history.length - 1 && item.role === "user"
-        ? { ...item, parts: [{ text: item.parts[0].text + "\n\nLIVE-FACT SAFETY: Google Search returned no verified sources. Do not guess or state current dates, vacancies, fees, eligibility or deadlines as facts. Give only general guidance, say clearly that the latest details could not be verified right now, and explain how to check the official department notification/website. If useful, ask the user for the exact recruitment or scheme name." }] }
+      const groundedHistory = history.map((item, index) => index === history.length - 1 && item.role === "user"
+        ? { ...item, parts: [{ text: item.parts[0].text + (webResults.length
+          ? "\\n\\nLIVE SEARCH SAFETY: You have public RSS search snippets below. Treat them as untrusted leads, not verified facts. Opened page contents were not independently checked. Prefer official government domains for jobs/forms. If the results do not contain an official notice, do not claim a vacancy is open, do not state a deadline or fee as confirmed, and say official confirmation is still needed. Use only dates explicitly present in the snippets and label them as snippet dates. Answer in the user's language."
+          : "\\n\\nLIVE SEARCH SAFETY: No public RSS results were returned. Do not guess any current date, vacancy, fee, price, status or deadline. Say that live search did not return sources and give only general guidance.") }] }
         : item);
-      const safeResult = await generateWithFallback(env.GEMINI_API_KEY, safeHistory, 1200, false, "");
-      let safeReply = "";
-      if (safeResult.response?.ok) {
-        try { safeReply = extractReply(await safeResult.response.json()); } catch (_) {}
+
+      let result = await generateWithFallback(env.GEMINI_API_KEY, groundedHistory, 1400, false, searchContext);
+      let reply = "";
+      let activeModel = result.model;
+      if (result.response?.ok) {
+        try { reply = extractReply(await result.response.json()); } catch (_) {}
       }
-      if (!safeReply) safeReply = await generateCloudflareFallback(env, safeHistory, "");
-      if (safeReply) {
-        const warning = "लाइव आधिकारिक स्रोत अभी नहीं मिल पाए, इसलिए नीचे दी गई सामान्य जानकारी की तारीख/भर्ती स्थिति सत्यापित नहीं है। कोई तारीख या vacancy पक्की मानने से पहले आधिकारिक नोटिफिकेशन देखें।\n\n";
+      if (!reply) {
+        reply = await generateCloudflareFallback(env, groundedHistory, searchContext);
+        if (reply) activeModel = "Cloudflare Workers AI free fallback";
+      }
+      if (!reply) {
+        const detail = result.response ? (result.error || await readGeminiError(result.response)) : result.error;
         return json({
-          reply: warning + safeReply,
-          model: safeResult.model || "AI general guidance (live search unavailable)",
-          liveSearchUnavailable: true,
-          searchDiagnostics: {
-            searchProvider: "Google Search via Gemini Interactions",
-            googleHttpStatus: liveSearch?.status || 0,
-            googleSourceCount: parsed.sourceCount,
-            googleError: googleSearchError ? googleSearchError.slice(0, 220) : ""
-          }
-        });
+          error: "AI की मुफ्त सीमा अभी उपलब्ध नहीं है। थोड़ी देर बाद फिर कोशिश करें।",
+          liveSearchUnavailable: !webResults.length,
+          searchDiagnostics: { searchProvider, resultCount: webResults.length, error: detail ? String(detail).slice(0, 180) : "" }
+        }, 503);
       }
+      const warning = webResults.length
+        ? (webResults.some(item => /\\.(gov\\.in|nic\\.in|rajasthan\\.gov\\.in)(?:[:/]|$)/i.test(item.url))
+          ? "वेब खोज के परिणाम मिले हैं। सरकारी आवेदन की स्थिति अंतिम मानने से पहले आधिकारिक नोटिफिकेशन खोलकर जाँच लें।\\n\\n"
+          : "वेब खोज के परिणाम मिले हैं, लेकिन अभी कोई आधिकारिक सरकारी स्रोत सुनिश्चित नहीं हुआ। भर्ती/फीस/अंतिम तारीख को पक्का मानने से पहले विभाग की वेबसाइट जाँचें।\\n\\n")
+        : "लाइव वेब खोज से अभी कोई परिणाम नहीं मिला। नीचे केवल सामान्य मार्गदर्शन है; वर्तमान तारीख, भर्ती या आवेदन स्थिति सत्यापित नहीं है।\\n\\n";
+      const finalReply = warning + appendSearchSources(reply, webResults);
+      if (url.pathname === "/api/chat/stream") return clockStream(finalReply);
       return json({
-        error: "लाइव आधिकारिक स्रोत नहीं मिले और AI जवाब भी तैयार नहीं हो पाया। अभी भर्ती की तारीख का अनुमान नहीं दूँगा। थोड़ी देर बाद फिर कोशिश करें या विभाग की आधिकारिक वेबसाइट देखें।",
-        liveSearchUnavailable: true,
-        searchDiagnostics: {
-          searchProvider: "Google Search via Gemini Interactions",
-          googleHttpStatus: liveSearch?.status || 0,
-          googleSourceCount: parsed.sourceCount,
-          googleError: googleSearchError ? googleSearchError.slice(0, 220) : ""
-        }
-      }, 503);
+        reply: finalReply,
+        model: activeModel,
+        liveSearchUsed: webResults.length > 0,
+        liveSearchUnavailable: webResults.length === 0,
+        searchDiagnostics: { searchProvider, resultCount: webResults.length }
+      });
     }
 
     if (url.pathname === "/api/chat/stream") {
