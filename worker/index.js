@@ -39,54 +39,37 @@ function xmlTag(block, tag) {
   const match = block.match(new RegExp("<" + tag + "(?:\\s[^>]*)?>([\\s\\S]*?)</" + tag + ">", "i"));
   return match ? decodeXml(match[1]) : "";
 }
-function parseRssItems(xml, provider) {
-  const items = [];
-  const blocks = String(xml || "").slice(0, 600000).match(/<item\b[\s\S]*?<\/item>/gi) || [];
+function parseWebResults(html) {
+  const results = [];
+  const blocks = String(html || '').split(/class=[\"']result results_links[^\"']*[\"']/i).slice(1);
   for (const block of blocks) {
-    const title = xmlTag(block, "title");
-    const link = xmlTag(block, "link");
-    const description = xmlTag(block, "description");
-    const pubDate = xmlTag(block, "pubDate");
-    const source = xmlTag(block, "source");
-    if (!title || !link || !/^https:\/\//i.test(link)) continue;
-    let hostname = provider;
-    try { hostname = new URL(link).hostname; } catch (_) {}
-    items.push({ title, url: link, snippet: description.slice(0, 500), published: pubDate, source: source || hostname, provider });
+    const match = block.match(/<a[^>]+class=[\"'][^\"']*result__a[^\"']*[\"'][^>]+href=[\"']([^\"']+)[\"'][^>]*>([\s\S]*?)<\\/a>/i);
+    if (!match) continue;
+    let href = match[1].replace(/&amp;/g, '&');
+    try { const parsed = new URL(href, 'https://html.duckduckgo.com'); const redirect = parsed.searchParams.get('uddg'); if (redirect) href = decodeURIComponent(redirect); } catch (_) {}
+    try { const u = new URL(href); if (u.protocol !== 'https:' || u.username || u.password || /^(localhost|127\\.|10\\.|192\\.168\\.)/.test(u.hostname)) continue;
+      const title = match[2].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '\"').replace(/\\s+/g, ' ').trim();
+      const sn = block.match(/class=[\"'][^\"']*result__snippet[^\"']*[\"'][^>]*>([\\s\\S]*?)<\\/(?:a|td|div)>/i);
+      const snippet = (sn ? sn[1] : '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '\"').replace(/\\s+/g, ' ').trim();
+      if (title) results.push({ title, url: u.href, snippet: snippet.slice(0, 500), source: u.hostname, provider: 'DuckDuckGo Web Search' });
+    } catch (_) {}
+    if (results.length >= 8) break;
   }
-  return items;
+  return results;
 }
 async function searchFreeWeb(message) {
+  const query = String(message || '').replace(/https?:\\/\\/\\S+/gi, '').replace(/\\s+/g, ' ').trim().slice(0, 220);
+  if (!query) return { provider: 'none', results: [] };
   try {
-    const query = String(message || "").replace(/https?:\/\/\S+/gi, "").replace(/\s+/g, " ").trim().slice(0, 220);
-    if (!query) return { provider: "none", results: [] };
-    const endpoints = [
-      { provider: "Bing public RSS", url: "https://www.bing.com/search?format=rss&q=" + encodeURIComponent(query) },
-      { provider: "Google News RSS", url: "https://news.google.com/rss/search?q=" + encodeURIComponent(query) + "&hl=hi&gl=IN&ceid=IN:hi" }
-    ];
-    const settled = await Promise.allSettled(endpoints.map(async endpoint => {
-      const response = await fetch(endpoint.url, {
-        headers: { "Accept": "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8", "User-Agent": "BHARAT-AI/1.0" },
-        signal: AbortSignal.timeout(8000)
-      });
-      if (!response.ok) throw new Error(endpoint.provider + " HTTP " + response.status);
-      return parseRssItems(await response.text(), endpoint.provider);
-    }));
-    const results = [];
-    const seen = new Set();
-    for (const outcome of settled) {
-      if (outcome.status !== "fulfilled") continue;
-      for (const item of outcome.value) {
-        const key = item.url.split("#")[0];
-        if (seen.has(key)) continue;
-        seen.add(key);
-        results.push(item);
-        if (results.length >= 8) break;
-      }
-      if (results.length >= 8) break;
-    }
-    return { provider: [...new Set(results.map(item => item.provider))].join(" + ") || "Public RSS search", results: results.slice(0, 8) };
+    const response = await fetch('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query), {
+      headers: { Accept: 'text/html', 'User-Agent': 'Mozilla/5.0 (compatible; BHARATAAI/1.0)' },
+      signal: AbortSignal.timeout(12000)
+    });
+    if (!response.ok) throw new Error('Search HTTP ' + response.status);
+    const results = parseWebResults(await response.text());
+    return { provider: 'DuckDuckGo Web Search', results };
   } catch (error) {
-    return { provider: "Public RSS search", results: [], error: String(error?.message || error).slice(0, 160) };
+    return { provider: 'DuckDuckGo Web Search', results: [], error: String(error && error.message || error).slice(0, 160) };
   }
 }
 function makeSearchContext(results) {
@@ -510,7 +493,7 @@ export default {
     let searchProvider = "";
     let searchError = "";
 
-    // No paid Google Search grounding. Use public RSS search endpoints instead.
+    // No paid Google Search grounding. Use DuckDuckGo Web Search endpoints instead.
     // Search results are evidence candidates, not proof; official-source verification
     // remains mandatory for government recruitment, fees, dates and eligibility.
     if (freshQuestion) {
@@ -521,8 +504,8 @@ export default {
 
       const groundedHistory = history.map((item, index) => index === history.length - 1 && item.role === "user"
         ? { ...item, parts: [{ text: item.parts[0].text + (webResults.length
-          ? "\\n\\nLIVE SEARCH SAFETY: You have public RSS search snippets below. Treat them as untrusted leads, not verified facts. Opened page contents were not independently checked. Prefer official government domains for jobs/forms. If the results do not contain an official notice, do not claim a vacancy is open, do not state a deadline or fee as confirmed, and say official confirmation is still needed. Use only dates explicitly present in the snippets and label them as snippet dates. Answer in the user's language."
-          : "\\n\\nLIVE SEARCH SAFETY: No public RSS results were returned. Do not guess any current date, vacancy, fee, price, status or deadline. Say that live search did not return sources and give only general guidance.") }] }
+          ? "\\n\\nLIVE SEARCH SAFETY: You have DuckDuckGo Web Search snippets below. Treat them as untrusted leads, not verified facts. Opened page contents were not independently checked. Prefer official government domains for jobs/forms. If the results do not contain an official notice, do not claim a vacancy is open, do not state a deadline or fee as confirmed, and say official confirmation is still needed. Use only dates explicitly present in the snippets and label them as snippet dates. Answer in the user's language."
+          : "\\n\\nLIVE SEARCH SAFETY: No live web search results were returned. Do not guess any current date, vacancy, fee, price, status or deadline. Say that live search did not return sources and give only general guidance.") }] }
         : item);
 
       let result = await generateWithFallback(env.GEMINI_API_KEY, groundedHistory, 1400, false, searchContext);
