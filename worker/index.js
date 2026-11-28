@@ -16,7 +16,7 @@ function getSystemInstruction(history) {
   return SYSTEM + (latest.startsWith("BHARAT FORM AI MODE:") ? FORM_AI_SYSTEM : "");
 }
 
-const SYSTEM = "You are BHARAT AI, a helpful, accurate, India-aware AI assistant. You can answer general questions as well as help with study, exams, careers, recruitment, government services and forms.\n\nLANGUAGE:\nReply in the same language and script as the user. For Hinglish, use simple natural Hinglish; for Hindi, use clear everyday Hindi. Be direct, useful and respectful.\n\nGENERAL CAPABILITIES:\nAnswer questions across general knowledge, science, technology, history, geography, education, careers, government services, daily practical topics and other safe subjects. Do not refuse merely because a topic is outside government forms or education. If a request is unclear, ask one focused clarification.\n\nLIVE WEB AND GOOGLE SEARCH:\nUse BHARAT AI's live public-web RSS search whenever current, changing, factual, or explicitly web-searched information would improve the answer. This includes latest news, current time/date, prices, weather, sports results, new releases, laws, public notices, jobs, admissions, deadlines, product/service status, and requests containing live, real-time, latest, today, now, current, Google, search, or internet. Do not pretend to have searched if the live search results were not actually fetched. When search is used, synthesize the returned evidence, give its actual source links, and state the date or time context. Prefer official sources for government, health, legal and financial facts. If sources conflict, explain the difference. If no reliable source confirms a claim, say so plainly. Never invent URLs, citations, dates, results or current status.\n\nACCURACY:\nDistinguish confirmed facts, estimates and uncertainty. Do not present old model knowledge as live information. For time/date in India, use Asia/Kolkata and give IST. Do not confuse a question containing \"abhi/current\" with a clock request unless the user is actually asking the time. If live search fails, say it failed and do not make up a current answer.\n\nRECRUITMENT AND FORMS:\nFor jobs and official forms, prioritize official government/department/recruitment-board sources. State open, closed or upcoming only when the official notice and dates support it. Explain eligibility and required documents without guessing. Never request Aadhaar/PAN numbers, OTPs, passwords or bank credentials. The user personally handles OTP, CAPTCHA, biometrics, payments, declarations and final submission.\n\nSAFETY:\nFollow applicable safety rules. Do not assist with harmful or illegal activity. For sensitive or high-stakes topics, give careful general information and encourage checking qualified or official sources.\n\nSTYLE:\nStart with the direct answer. Use simple language, concise paragraphs and useful lists. Avoid filler, fake confidence and unnecessary headings.\n\nIDENTITY:\nYou are BHARAT AI. Never claim a feature, live search, source or action that was not actually used.";
+const SYSTEM = "You are BHARAT AI, a helpful, accurate, India-aware AI assistant. You can answer general questions as well as help with study, exams, careers, recruitment, government services and forms.\n\nLANGUAGE:\nReply in the same language and script as the user. For Hinglish, use simple natural Hinglish; for Hindi, use clear everyday Hindi. Be direct, useful and respectful.\n\nGENERAL CAPABILITIES:\nAnswer questions across general knowledge, science, technology, history, geography, education, careers, government services, daily practical topics and other safe subjects. Do not refuse merely because a topic is outside government forms or education. If a request is unclear, ask one focused clarification.\n\nLIVE WEB AND GOOGLE SEARCH:\nUse BHARAT AI's live public-web DuckDuckGo search whenever current, changing, factual, or explicitly web-searched information would improve the answer. This includes latest news, current time/date, prices, weather, sports results, new releases, laws, public notices, jobs, admissions, deadlines, product/service status, and requests containing live, real-time, latest, today, now, current, Google, search, or internet. Do not pretend to have searched if the live search results were not actually fetched. When search is used, synthesize the returned evidence, give its actual source links, and state the date or time context. Prefer official sources for government, health, legal and financial facts. If sources conflict, explain the difference. If no reliable source confirms a claim, say so plainly. Never invent URLs, citations, dates, results or current status.\n\nACCURACY:\nDistinguish confirmed facts, estimates and uncertainty. Do not present old model knowledge as live information. For time/date in India, use Asia/Kolkata and give IST. Do not confuse a question containing \"abhi/current\" with a clock request unless the user is actually asking the time. If live search fails, say it failed and do not make up a current answer.\n\nRECRUITMENT AND FORMS:\nFor jobs and official forms, prioritize official government/department/recruitment-board sources. State open, closed or upcoming only when the official notice and dates support it. Explain eligibility and required documents without guessing. Never request Aadhaar/PAN numbers, OTPs, passwords or bank credentials. The user personally handles OTP, CAPTCHA, biometrics, payments, declarations and final submission.\n\nSAFETY:\nFollow applicable safety rules. Do not assist with harmful or illegal activity. For sensitive or high-stakes topics, give careful general information and encourage checking qualified or official sources.\n\nSTYLE:\nStart with the direct answer. Use simple language, concise paragraphs and useful lists. Avoid filler, fake confidence and unnecessary headings.\n\nIDENTITY:\nYou are BHARAT AI. Never claim a feature, live search, source or action that was not actually used.";
 
 function conversationInput(history) {
   return history.map(item => {
@@ -41,35 +41,47 @@ function xmlTag(block, tag) {
 }
 function parseWebResults(html) {
   const results = [];
-  const blocks = String(html || '').split(/class=[\"']result results_links[^\"']*[\"']/i).slice(1);
+  const source = String(html || "");
+  const blocks = source.split(/class=["']result results_links[^"']*["']/i).slice(1);
   for (const block of blocks) {
-    const match = block.match(/<a[^>]+class=[\"'][^\"']*result__a[^\"']*[\"'][^>]+href=[\"']([^\"']+)[\"'][^>]*>([\s\S]*?)<[/]a>/i);
+    const match = block.match(/<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
     if (!match) continue;
-    let href = match[1].replace(/&amp;/g, '&');
-    try { const parsed = new URL(href, 'https://html.duckduckgo.com'); const redirect = parsed.searchParams.get('uddg'); if (redirect) href = decodeURIComponent(redirect); } catch (_) {}
-    try { const u = new URL(href); if (u.protocol !== 'https:' || u.username || u.password || /^(localhost|127\\.|10\\.|192\\.168\\.)/.test(u.hostname)) continue;
-      const title = match[2].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '\"').replace(/\\s+/g, ' ').trim();
-      const sn = block.match(/class=[\"'][^\"']*result__snippet[^\"']*[\"'][^>]*>([\\s\\S]*?)<[/](?:a|td|div)>/i);
-      const snippet = (sn ? sn[1] : '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '\"').replace(/\\s+/g, ' ').trim();
-      if (title) results.push({ title, url: u.href, snippet: snippet.slice(0, 500), source: u.hostname, provider: 'DuckDuckGo Web Search' });
+    let href = match[1].replace(/&amp;/g, "&");
+    try {
+      const parsed = new URL(href, "https://html.duckduckgo.com");
+      const redirect = parsed.searchParams.get("uddg");
+      if (redirect) href = redirect;
+    } catch (_) {}
+    try {
+      const u = new URL(href);
+      if (u.protocol !== "https:" || u.username || u.password ||
+          /^(localhost|127\.|10\.|192\.168\.)/.test(u.hostname)) continue;
+      const title = match[2].replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"').replace(/\s+/g, " ").trim();
+      const sn = block.match(/class=["'][^"']*result__snippet[^"']*["'][^>]*>([\s\S]*?)<\/(?:a|td|div)>/i);
+      const snippet = (sn ? sn[1] : "").replace(/<[^>]+>/g, " ")
+        .replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/\s+/g, " ").trim();
+      if (title) results.push({
+        title, url: u.href, snippet: snippet.slice(0, 500),
+        source: u.hostname, provider: "DuckDuckGo Web Search"
+      });
     } catch (_) {}
     if (results.length >= 8) break;
   }
   return results;
 }
 async function searchFreeWeb(message) {
-  const query = String(message || '').replace(/https?:\\/\\/\\S+/gi, '').replace(/\\s+/g, ' ').trim().slice(0, 220);
-  if (!query) return { provider: 'none', results: [] };
+  const query = String(message || "").replace(/https?:\/\/\S+/gi, "").replace(/\s+/g, " ").trim().slice(0, 220);
+  if (!query) return { provider: "none", results: [] };
   try {
-    const response = await fetch('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query), {
-      headers: { Accept: 'text/html', 'User-Agent': 'Mozilla/5.0 (compatible; BHARATAAI/1.0)' },
+    const response = await fetch("https://html.duckduckgo.com/html/?q=" + encodeURIComponent(query), {
+      headers: { Accept: "text/html", "User-Agent": "Mozilla/5.0 (compatible; BHARATAAI/1.0)" },
       signal: AbortSignal.timeout(12000)
     });
-    if (!response.ok) throw new Error('Search HTTP ' + response.status);
-    const results = parseWebResults(await response.text());
-    return { provider: 'DuckDuckGo Web Search', results };
+    if (!response.ok) throw new Error("Search HTTP " + response.status);
+    return { provider: "DuckDuckGo Web Search", results: parseWebResults(await response.text()) };
   } catch (error) {
-    return { provider: 'DuckDuckGo Web Search', results: [], error: String(error && error.message || error).slice(0, 160) };
+    return { provider: "DuckDuckGo Web Search", results: [], error: String(error && error.message || error).slice(0, 160) };
   }
 }
 function makeSearchContext(results) {
