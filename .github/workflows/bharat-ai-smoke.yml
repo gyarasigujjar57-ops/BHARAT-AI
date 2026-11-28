@@ -54,6 +54,42 @@ jobs:
           echo "$result"
           echo "$result" | grep -q '"reply"'
 
+      - name: Check the exact streaming endpoint used by the app and newline formatting
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const response = await fetch("https://bharat-ai-api.gyarasigujjar57.workers.dev/api/chat/stream", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: "New bharti bata", history: [], mode: "assistant", language: "hi" })
+          });
+          if (!response.ok) throw new Error("Streaming API HTTP " + response.status + ": " + await response.text());
+          if (!response.headers.get("content-type")?.includes("text/event-stream")) throw new Error("Expected text/event-stream");
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "", combined = "";
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const events = buffer.replace(/\\r\\n/g, "\\n").split("\\n\\n");
+            buffer = events.pop() || "";
+            for (const event of events) {
+              const line = event.split("\\n").find(x => x.startsWith("data:"));
+              if (!line) continue;
+              const raw = line.slice(5).trim();
+              if (!raw || raw === "[DONE]") continue;
+              const packet = JSON.parse(raw);
+              if (packet.error) throw new Error(packet.error);
+              if (packet.text) combined += packet.text;
+            }
+          }
+          if (!combined.trim()) throw new Error("Streaming endpoint returned no text");
+          if (combined.includes("\\\\n")) throw new Error("Literal backslash-n leaked into the visible answer");
+          if (!combined.includes("स्रोत:")) throw new Error("Live search sources missing from streaming answer");
+          console.log(combined);
+          NODE
+
       - name: Check general assistant is not scope-locked
         run: |
           set -euo pipefail
