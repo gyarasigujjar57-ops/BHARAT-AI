@@ -644,10 +644,15 @@ export default {
           : "\n\nLIVE SEARCH SAFETY: No live search results were returned. Do not guess current facts; say that official live sources could not be found.") }] }
         : item);
       const recruitmentQuestion = isRecruitmentSearch(message);
-      if (recruitmentQuestion && webResults.length === 0) {
-        const safeReply = "आपका सवाल सरकारी भर्ती के बारे में है। अभी खोज में कोई ऐसी आधिकारिक सरकारी अधिसूचना नहीं मिली जिसे खुली भर्ती के रूप में पक्का बताया जा सके। इसलिए मैं किसी कंपनी या निजी जॉब वेबसाइट की जानकारी को सरकारी भर्ती बताकर नहीं दूँगा। आप चाहें तो राज्य या विभाग (जैसे राजस्थान, रेलवे, SSC, सेना) का नाम लिखें; मैं उसी के आधिकारिक स्रोतों पर खोज सीमित करूँगा।";
+      if (recruitmentQuestion) {
+        const officialLinks = webResults.slice(0, 5).map((item, index) =>
+          (index + 1) + ". [" + item.title.replace(/[\[\]]/g, "") + "](" + item.url + ")"
+        ).join("\n");
+        const safeReply = webResults.length
+          ? "आप सरकारी भर्ती पूछ रहे हैं। खोज में कुछ आधिकारिक सरकारी वेबसाइटों के पेज मिले हैं, लेकिन केवल search snippet से किसी खास पद की अधिसूचना, योग्यता, आवेदन शुरू होने की तारीख या अंतिम तारीख की पुष्टि नहीं हो सकती। इसलिए मैं अभी किसी भर्ती को Open बताकर या तारीख/पद बताकर गलत जानकारी नहीं दूँगा।\n\nआधिकारिक पेज जिन्हें आगे जाँचना है:\n" + officialLinks + "\n\nकिसी भर्ती को पक्का बताने से पहले उसके मूल PDF/अधिसूचना और आवेदन पोर्टल की स्थिति जाँचना जरूरी है। राज्य या विभाग का नाम लिखें तो खोज उसी तक सीमित की जा सकती है।"
+          : "आप सरकारी भर्ती पूछ रहे हैं। अभी खोज में कोई आधिकारिक सरकारी भर्ती पेज नहीं मिला। इसलिए मैं किसी कंपनी या निजी जॉब वेबसाइट की जानकारी को सरकारी भर्ती बताकर नहीं दूँगा। राज्य या विभाग (जैसे राजस्थान, रेलवे, SSC, सेना) का नाम लिखें; उसी के आधिकारिक स्रोतों पर खोज सीमित की जा सकती है।";
         if (url.pathname === "/api/chat/stream") return clockStream(safeReply);
-        return json({ reply: safeReply, model: "BHARAT AI verified-search guard", liveSearchUsed: false, liveSearchUnavailable: true, searchDiagnostics: { searchProvider, resultCount: 0, error: searchError } });
+        return json({ reply: safeReply, model: "BHARAT AI official-source guard", liveSearchUsed: webResults.length > 0, liveSearchUnavailable: webResults.length === 0, searchDiagnostics: { searchProvider, resultCount: webResults.length, error: searchError } });
       }
       const warning = webResults.length
         ? (recruitmentQuestion
