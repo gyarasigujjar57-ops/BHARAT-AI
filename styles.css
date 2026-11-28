@@ -72,3 +72,18 @@
 .ocr-status{font-size:11px;line-height:1.5;color:#68766c;margin:9px 0}
 .form-start .ocr-result{display:block;width:100%;height:auto;min-height:110px;max-height:220px;padding:10px;border:1px solid #dfe8e1;border-radius:9px;font:12px/1.55 ui-monospace,monospace;resize:vertical}
 .ocr-privacy{margin-top:9px;color:#8a6a37;font-size:10px;line-height:1.6}
+\n
+/* Safe government portal reader and local field-label mapper */
+.portal-reader{max-width:620px;margin:16px auto 24px;padding:18px;border:1px solid #e5ece6;border-radius:16px;background:#fff}
+.portal-reader-kicker{font-size:10px;font-weight:800;letter-spacing:.1em;color:#16834b}
+.portal-reader h2{font-size:19px;margin:7px 0;color:#203629}
+.portal-reader>p{font-size:12px;line-height:1.65;color:#6e7c72}
+.portal-reader label{display:block;margin:12px 0 6px;font-size:12px;font-weight:700;color:#415448}
+.portal-reader input,.portal-reader textarea{width:100%;border:1px solid #dce6de;border-radius:10px;padding:11px;font:inherit;font-size:13px;background:#fff;color:#25362b}
+.portal-reader textarea{resize:vertical;min-height:100px;line-height:1.55}
+.portal-status{font-size:11px;line-height:1.5;color:#68766c;margin:8px 0}
+.portal-field-map{margin-top:10px;padding:10px;border-radius:10px;background:#f7faf7;color:#425548;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.portal-field-map ul{padding-left:20px;margin:6px 0}
+.portal-field-map li{margin:3px 0}
+.portal-privacy{font-size:10px!important;color:#8a6a37!important}
+@media(max-width:480px){.portal-reader{margin:12px 0;padding:15px}}
