@@ -430,7 +430,8 @@ document.querySelector("#openPortal")?.addEventListener("click", () => {
     status.textContent = "यह लिंक स्वीकार नहीं हुआ। पूरा HTTPS लिंक दें और जाँचें कि डोमेन .gov.in या .nic.in पर खत्म होता है।";
     return;
   }
-  const opened = window.open(url.href, "_blank", "noopener,noreferrer");
+  const opened = window.open(url.href, "_blank");
+  if (opened) opened.opener = null;
   status.textContent = opened === null
     ? "ब्राउज़र ने नया टैब रोका हो सकता है। अपने ब्राउज़र की अनुमति जाँचें।"
     : "आधिकारिक डोमेन लिंक नए टैब में खोला गया।";
