@@ -15,6 +15,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check Worker JavaScript syntax
+        run: node --check worker/index.js
+
       - name: Check Gemini connection
         run: |
           set -euo pipefail
@@ -54,7 +65,7 @@ jobs:
           ! echo "$result" | grep -q 'मैं यह काम नहीं कर सकता'
           echo "$result" | grep -q '"reply"'
 
-      - name: Check Google-grounded current answer has source links
+      - name: Check no-billing live RSS search returns source links
         run: |
           set -euo pipefail
           result="$(curl --silent --show-error --max-time 90 \
@@ -64,15 +75,15 @@ jobs:
           echo "$result"
           echo "$result" | grep -qi 'https\?://'
 
-      - name: Check Google Search grounding diagnostics
+      - name: Check public RSS search diagnostics
         run: |
           set -euo pipefail
           result="$(curl --fail-with-body --silent --show-error --max-time 90 "https://bharat-ai-api.gyarasigujjar57.workers.dev/health?searchtest=1")"
           echo "$result"
-          echo "$result" | grep -q '"searchProvider":"Google Search via Gemini Interactions"'
+          echo "$result" | grep -q '"searchProvider"'
           echo "$result" | grep -Eq '"resultCount":[1-9]'
 
-      - name: Check independent live web search for recruitment
+      - name: Check independent no-billing live web search for recruitment
         run: |
           set -euo pipefail
           result="$(curl --fail-with-body --silent --show-error --max-time 90 \
