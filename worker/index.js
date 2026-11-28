@@ -421,7 +421,7 @@ function clockStream(reply) {
   const encoder = new TextEncoder();
   return new Response(new ReadableStream({ start(controller) {
     controller.enqueue(encoder.encode(streamPacket({ text: reply })));
-    controller.enqueue(encoder.encode("data: [DONE]\\n\\n"));
+    controller.enqueue(encoder.encode("data: [DONE]\n\n"));
     controller.close();
   }}), { headers: { ...cors, "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform" } });
 }
@@ -626,8 +626,8 @@ export default {
 
       const groundedHistory = history.map((item, index) => index === history.length - 1 && item.role === "user"
         ? { ...item, parts: [{ text: item.parts[0].text + (webResults.length
-          ? "\\n\\nLIVE SEARCH SAFETY: You have live web search snippets below. Treat them as untrusted leads, not verified facts. Opened page contents were not independently checked. Prefer official government domains for jobs/forms. If the results do not contain an official notice, do not claim a vacancy is open, do not state a deadline or fee as confirmed, and say official confirmation is still needed. Use only dates explicitly present in the snippets and label them as snippet dates. Answer in the user's language."
-          : "\\n\\nLIVE SEARCH SAFETY: No live web search results were returned. Do not guess any current date, vacancy, fee, price, status or deadline. Say that live search did not return sources and give only general guidance.") }] }
+          ? "\n\nLIVE SEARCH SAFETY: You have live web search snippets below. Treat them as untrusted leads, not verified facts. Opened page contents were not independently checked. Prefer official government domains for jobs/forms. If the results do not contain an official notice, do not claim a vacancy is open, do not state a deadline or fee as confirmed, and say official confirmation is still needed. Use only dates explicitly present in the snippets and label them as snippet dates. Answer in the user's language."
+          : "\n\nLIVE SEARCH SAFETY: No live web search results were returned. Do not guess any current date, vacancy, fee, price, status or deadline. Say that live search did not return sources and give only general guidance.") }] }
         : item);
 
       let result = await generateWithFallback(env.GEMINI_API_KEY, groundedHistory, 1400, false, searchContext);
@@ -650,10 +650,10 @@ export default {
         }, 503);
       }
       const warning = webResults.length
-        ? (webResults.some(item => /\\.(gov\\.in|nic\\.in|rajasthan\\.gov\\.in)(?:[:/]|$)/i.test(item.url))
-          ? "वेब खोज के परिणाम मिले हैं। सरकारी आवेदन की स्थिति अंतिम मानने से पहले आधिकारिक नोटिफिकेशन खोलकर जाँच लें।\\n\\n"
-          : "वेब खोज के परिणाम मिले हैं, लेकिन अभी कोई आधिकारिक सरकारी स्रोत सुनिश्चित नहीं हुआ। भर्ती/फीस/अंतिम तारीख को पक्का मानने से पहले विभाग की वेबसाइट जाँचें।\\n\\n")
-        : "लाइव वेब खोज से अभी कोई परिणाम नहीं मिला। नीचे केवल सामान्य मार्गदर्शन है; वर्तमान तारीख, भर्ती या आवेदन स्थिति सत्यापित नहीं है।\\n\\n";
+        ? (webResults.some(item => /\.(gov\.in|nic\.in|rajasthan\.gov\.in)(?:[:/]|$)/i.test(item.url))
+          ? "वेब खोज के परिणाम मिले हैं। सरकारी आवेदन की स्थिति अंतिम मानने से पहले आधिकारिक नोटिफिकेशन खोलकर जाँच लें।\n\n"
+          : "वेब खोज के परिणाम मिले हैं, लेकिन अभी कोई आधिकारिक सरकारी स्रोत सुनिश्चित नहीं हुआ। भर्ती/फीस/अंतिम तारीख को पक्का मानने से पहले विभाग की वेबसाइट जाँचें।\n\n")
+        : "लाइव वेब खोज से अभी कोई परिणाम नहीं मिला। नीचे केवल सामान्य मार्गदर्शन है; वर्तमान तारीख, भर्ती या आवेदन स्थिति सत्यापित नहीं है।\n\n";
       const finalReply = warning + appendSearchSources(reply, webResults);
       if (url.pathname === "/api/chat/stream") return clockStream(finalReply);
       return json({
