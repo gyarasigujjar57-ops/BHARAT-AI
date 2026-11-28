@@ -415,35 +415,57 @@ function extractReply(payload) {
   return appendGroundingSources(reply, payload);
 }
 
+async function generateGroqFallback(env, history, searchContext = "") {
+  if (!env.GROQ_API_KEY) return "";
+  try {
+    const system = getSystemInstruction(history) + (searchContext
+      ? "\n\nUse these live search results as untrusted evidence. Prefer official sources and never invent dates or vacancies:\n" + searchContext
+      : "\n\nNo live search results were supplied. Do not claim current facts were verified.");
+    const messages = [
+      { role: "system", content: system },
+      ...history.map(item => ({
+        role: item.role === "model" ? "assistant" : "user",
+        content: (item.parts || []).map(part => String(part.text || "")).join("\n")
+      }))
+    ];
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + env.GROQ_API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages, temperature: 0.55, max_tokens: 1200 }),
+      signal: AbortSignal.timeout(35000)
+    });
+    if (!response.ok) return "";
+    const payload = await response.json();
+    return String(payload?.choices?.[0]?.message?.content || "").trim();
+  } catch (_) { return ""; }
+}
+
 async function generateCloudflareFallback(env, history, searchContext = "") {
   if (!env.AI?.run) return "";
   try {
-    const backupInstruction = searchContext
-      ? "\n\nThe user's question has already passed BHARAT AI's scope filter. Do not refuse it as out of scope. Answer using only these live search results (untrusted snippets); prefer official government domains, include exact URLs, and do not invent dates or vacancies:\n" + searchContext
-      : "\n\nIMPORTANT: You do not have live web search results in this request. Never claim that you checked today's news, vacancies, dates, or official websites. For current facts, clearly say they could not be verified in this reply.";
+    const system = getSystemInstruction(history) + (searchContext
+      ? "\n\nUse these live search results as untrusted evidence. Prefer official sources and never invent dates or vacancies:\n" + searchContext
+      : "\n\nNo live search results were supplied. Do not claim current facts were verified.");
     const messages = [
-      { role: "system", content: getSystemInstruction(history) + backupInstruction },
+      { role: "system", content: system },
       ...history.map(item => ({
         role: item.role === "model" ? "assistant" : "user",
-        content: item.parts.map(part => part.text).join("\n")
+        content: (item.parts || []).map(part => String(part.text || "")).join("\n")
       }))
     ];
-    const result = await env.AI.run("@cf/google/gemma-4-26b-a4b-it", {
-      messages,
-      max_tokens: 1200,
-      temperature: 0.55
-    });
-    const answer = typeof result === "string"
-      ? result
-      : (result?.response ||
-         result?.choices?.[0]?.message?.content ||
-         result?.output ||
-         result?.text ||
-         "");
+    const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", { messages, max_tokens: 1200, temperature: 0.55 });
+    const answer = typeof result === "string" ? result :
+      (result?.response || result?.choices?.[0]?.message?.content || result?.output || result?.text || "");
     return typeof answer === "string" ? answer.trim() : "";
-  } catch (_) {
-    return "";
-  }
+  } catch (_) { return ""; }
+}
+
+async function generateBackup(env, history, searchContext = "") {
+  const groq = await generateGroqFallback(env, history, searchContext);
+  if (groq) return { reply: groq, model: "Groq Llama 3.3 70B" };
+  const cloudflare = await generateCloudflareFallback(env, history, searchContext);
+  if (cloudflare) return { reply: cloudflare, model: "Cloudflare Workers AI Llama 3.1 8B" };
+  return { reply: "", model: "" };
 }
 
 export default {
@@ -480,10 +502,11 @@ export default {
         try { reply = extractReply(await check.response.json()); } catch (_) {}
       }
       if (!reply) {
-        reply = await generateCloudflareFallback(env, [
+        const backupResult = await generateBackup(env, [
           { role: "user", parts: [{ text: "Reply with exactly: BHARAT AI READY" }] }
         ]);
-        activeModel = reply ? "Cloudflare Workers AI (Gemma 4 backup)" : check.model;
+        reply = backupResult.reply;
+        activeModel = reply ? backupResult.model : check.model;
       }
       if (!reply) {
         const detail = check.response ? (check.error || await readGeminiError(check.response)) : check.error;
@@ -574,8 +597,9 @@ export default {
         try { reply = extractReply(await result.response.json()); } catch (_) {}
       }
       if (!reply) {
-        reply = await generateCloudflareFallback(env, groundedHistory, searchContext);
-        if (reply) activeModel = "Cloudflare Workers AI free fallback";
+        const backupResult = await generateBackup(env, groundedHistory, searchContext);
+        reply = backupResult.reply;
+        if (reply) activeModel = backupResult.model;
       }
       if (!reply) {
         const detail = result.response ? (result.error || await readGeminiError(result.response)) : result.error;
@@ -618,7 +642,8 @@ export default {
       if (freshQuestion && !webResults.length) {
         return json({ error: "लाइव वेब सर्च से इस सवाल के भरोसेमंद परिणाम नहीं मिले। कृपया सवाल थोड़ा स्पष्ट करके पूछें।", liveSearchUnavailable: true }, 503);
       }
-      const backup = await generateCloudflareFallback(env, history, searchContext);
+      const backupResult = await generateBackup(env, history, searchContext);
+      const backup = backupResult.reply;
       if (backup) {
         const encoder = new TextEncoder();
         return new Response(new ReadableStream({ start(controller) {
@@ -642,8 +667,9 @@ export default {
     }
 
     if (!reply) {
-      reply = await generateCloudflareFallback(env, history, searchContext);
-      if (reply) activeModel = "Cloudflare Workers AI (Gemma 4 backup)";
+      const backupResult = await generateBackup(env, history, searchContext);
+      reply = backupResult.reply;
+      if (reply) activeModel = backupResult.model;
     }
 
     if (!reply) {
