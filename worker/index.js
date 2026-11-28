@@ -39,32 +39,49 @@ function xmlTag(block, tag) {
   const match = block.match(new RegExp("<" + tag + "(?:\\s[^>]*)?>([\\s\\S]*?)</" + tag + ">", "i"));
   return match ? decodeXml(match[1]) : "";
 }
-function parseWebResults(html) {
-  const results = [];
+function decodeSearchText(value) {
+  return String(value || "")
+    .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Math.min(Number(n), 0x10ffff)))
+    .replace(/\s+/g, " ").trim();
+}
+function parseSearchHtml(html, provider) {
   const source = String(html || "");
-  const blocks = source.split(/class=["']result results_links[^"']*["']/i).slice(1);
+  const results = [];
+  let blocks = [];
+  if (provider === "Bing Web Search") {
+    blocks = source.split(/<li\b[^>]*class=["'][^"']*\bb_algo\b[^"']*["'][^>]*>/i).slice(1);
+  } else {
+    blocks = source.split(/class=["'][^"']*(?:result results_links|web-result)[^"']*["']/i).slice(1);
+    if (!blocks.length) blocks = [source];
+  }
   for (const block of blocks) {
-    const match = block.match(/<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
-    if (!match) continue;
-    let href = match[1].replace(/&amp;/g, "&");
+    const anchor = provider === "Bing Web Search"
+      ? block.match(/<h2\b[^>]*>\s*<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i)
+      : block.match(/<a\b[^>]*class=["'][^"']*(?:result__a|result-link)[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i)
+        || block.match(/<a\b[^>]*href=["']([^"']+)["'][^>]*class=["'][^"']*(?:result__a|result-link)[^"']*["'][^>]*>([\s\S]*?)<\/a>/i);
+    if (!anchor) continue;
+    let href = anchor[1].replace(/&amp;/g, "&");
     try {
-      const parsed = new URL(href, "https://html.duckduckgo.com");
+      const parsed = new URL(href, provider === "Bing Web Search" ? "https://www.bing.com" : "https://duckduckgo.com");
       const redirect = parsed.searchParams.get("uddg");
       if (redirect) href = redirect;
     } catch (_) {}
     try {
       const u = new URL(href);
       if (u.protocol !== "https:" || u.username || u.password ||
-          /^(localhost|127\.|10\.|192\.168\.)/.test(u.hostname)) continue;
-      const title = match[2].replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&")
-        .replace(/&quot;/g, '"').replace(/\s+/g, " ").trim();
-      const sn = block.match(/class=["'][^"']*result__snippet[^"']*["'][^>]*>([\s\S]*?)<\/(?:a|td|div)>/i);
-      const snippet = (sn ? sn[1] : "").replace(/<[^>]+>/g, " ")
-        .replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/\s+/g, " ").trim();
-      if (title) results.push({
-        title, url: u.href, snippet: snippet.slice(0, 500),
-        source: u.hostname, provider: "DuckDuckGo Web Search"
-      });
+          /^(localhost|127\.|10\.|192\.168\.|169\.254\.)/.test(u.hostname)) continue;
+      const title = decodeSearchText(anchor[2]);
+      const snippetMatch = block.match(/class=["'][^"']*(?:result__snippet|b_caption|snippet)[^"']*["'][^>]*>([\s\S]*?)<\/(?:a|div|p|td)>/i)
+        || block.match(/<p\b[^>]*>([\s\S]*?)<\/p>/i);
+      const snippet = decodeSearchText(snippetMatch ? snippetMatch[1] : "");
+      if (title && !results.some(item => item.url === u.href)) {
+        results.push({ title, url: u.href, snippet: snippet.slice(0, 700), source: u.hostname, provider });
+      }
     } catch (_) {}
     if (results.length >= 8) break;
   }
@@ -73,16 +90,39 @@ function parseWebResults(html) {
 async function searchFreeWeb(message) {
   const query = String(message || "").replace(/https?:\/\/\S+/gi, "").replace(/\s+/g, " ").trim().slice(0, 220);
   if (!query) return { provider: "none", results: [] };
-  try {
-    const response = await fetch("https://html.duckduckgo.com/html/?q=" + encodeURIComponent(query), {
-      headers: { Accept: "text/html", "User-Agent": "Mozilla/5.0 (compatible; BHARATAAI/1.0)" },
-      signal: AbortSignal.timeout(12000)
+  const endpoints = [
+    { provider: "DuckDuckGo Web Search", url: "https://html.duckduckgo.com/html/?q=" + encodeURIComponent(query) },
+    { provider: "DuckDuckGo Lite Search", url: "https://lite.duckduckgo.com/lite/?q=" + encodeURIComponent(query) },
+    { provider: "Bing Web Search", url: "https://www.bing.com/search?q=" + encodeURIComponent(query) }
+  ];
+  const settled = await Promise.allSettled(endpoints.map(async endpoint => {
+    const response = await fetch(endpoint.url, {
+      headers: { Accept: "text/html,application/xhtml+xml", "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36" },
+      signal: AbortSignal.timeout(9000)
     });
-    if (!response.ok) throw new Error("Search HTTP " + response.status);
-    return { provider: "DuckDuckGo Web Search", results: parseWebResults(await response.text()) };
-  } catch (error) {
-    return { provider: "DuckDuckGo Web Search", results: [], error: String(error && error.message || error).slice(0, 160) };
+    if (!response.ok) throw new Error(endpoint.provider + " HTTP " + response.status);
+    return { provider: endpoint.provider, results: parseSearchHtml(await response.text(), endpoint.provider) };
+  }));
+  const results = [];
+  const providers = [];
+  const errors = [];
+  for (const outcome of settled) {
+    if (outcome.status !== "fulfilled") {
+      errors.push(String(outcome.reason?.message || outcome.reason).slice(0, 100));
+      continue;
+    }
+    if (outcome.value.results.length) providers.push(outcome.value.provider);
+    for (const item of outcome.value.results) {
+      if (!results.some(existing => existing.url === item.url)) results.push(item);
+      if (results.length >= 8) break;
+    }
+    if (results.length >= 8) break;
   }
+  return {
+    provider: providers.join(" + ") || "Free public web search",
+    results: results.slice(0, 8),
+    error: errors.length ? errors.join("; ").slice(0, 240) : ""
+  };
 }
 function makeSearchContext(results) {
   return results.map((item, index) =>
@@ -418,7 +458,7 @@ export default {
           ok: searched.results.length > 0,
           searchProvider: searched.provider,
           resultCount: searched.results.length,
-          sources: searched.results.slice(0, 5).map(item => ({ title: item.title, url: item.url, publisher: item.source }))
+          sources: searched.results.slice(0, 5).map(item => ({ title: item.title, url: item.url, publisher: item.source })), error: searched.error || ""
         }, searched.results.length > 0 ? 200 : 502);
       }
       if (url.searchParams.get("test") !== "1") {
@@ -511,7 +551,7 @@ export default {
     if (freshQuestion) {
       const searched = await searchFreeWeb(message);
       webResults = searched.results;
-      searchProvider = searched.provider;
+      searchProvider = searched.provider;\n      searchError = searched.error || "";
       searchContext = makeSearchContext(webResults);
 
       const groundedHistory = history.map((item, index) => index === history.length - 1 && item.role === "user"
@@ -550,7 +590,7 @@ export default {
         model: activeModel,
         liveSearchUsed: webResults.length > 0,
         liveSearchUnavailable: webResults.length === 0,
-        searchDiagnostics: { searchProvider, resultCount: webResults.length }
+        searchDiagnostics: { searchProvider, resultCount: webResults.length, error: searchError || "" }
       });
     }
 
