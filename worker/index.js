@@ -29,26 +29,26 @@ function conversationInput(history) {
 
 function decodeXml(value) {
   return String(value || "")
-    .replace(/<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>/g, "$1")
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
     .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
-    .replace(/&#(\\d+);/g, (_, n) => { const code = Number(n); return code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : ""; })
-    .replace(/<[^>]+>/g, " ").replace(/\\s+/g, " ").trim();
+    .replace(/&#(\d+);/g, (_, n) => { const code = Number(n); return code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : ""; })
+    .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 function xmlTag(block, tag) {
-  const match = block.match(new RegExp("<" + tag + "(?:\\\\s[^>]*)?>([\\\\s\\\\S]*?)</" + tag + ">", "i"));
+  const match = block.match(new RegExp("<" + tag + "(?:\\s[^>]*)?>([\\s\\S]*?)</" + tag + ">", "i"));
   return match ? decodeXml(match[1]) : "";
 }
 function parseRssItems(xml, provider) {
   const items = [];
-  const blocks = String(xml || "").slice(0, 600000).match(/<item\\b[\\s\\S]*?<\\/item>/gi) || [];
+  const blocks = String(xml || "").slice(0, 600000).match(/<item\b[\s\S]*?<\/item>/gi) || [];
   for (const block of blocks) {
     const title = xmlTag(block, "title");
     const link = xmlTag(block, "link");
     const description = xmlTag(block, "description");
     const pubDate = xmlTag(block, "pubDate");
     const source = xmlTag(block, "source");
-    if (!title || !link || !/^https:\\/\\//i.test(link)) continue;
+    if (!title || !link || !/^https:\/\//i.test(link)) continue;
     let hostname = provider;
     try { hostname = new URL(link).hostname; } catch (_) {}
     items.push({ title, url: link, snippet: description.slice(0, 500), published: pubDate, source: source || hostname, provider });
@@ -57,7 +57,7 @@ function parseRssItems(xml, provider) {
 }
 async function searchFreeWeb(message) {
   try {
-    const query = String(message || "").replace(/https?:\\/\\/\\S+/gi, "").replace(/\\s+/g, " ").trim().slice(0, 220);
+    const query = String(message || "").replace(/https?:\/\/\S+/gi, "").replace(/\s+/g, " ").trim().slice(0, 220);
     if (!query) return { provider: "none", results: [] };
     const endpoints = [
       { provider: "Bing public RSS", url: "https://www.bing.com/search?format=rss&q=" + encodeURIComponent(query) },
@@ -91,19 +91,19 @@ async function searchFreeWeb(message) {
 }
 function makeSearchContext(results) {
   return results.map((item, index) =>
-    "[" + (index + 1) + "] " + item.title + "\\nPublisher: " + item.source +
-    (item.published ? "\\nPublished: " + item.published : "") +
-    (item.snippet ? "\\nSnippet: " + item.snippet : "") +
-    "\\nURL: " + item.url
-  ).join("\\n\\n");
+    "[" + (index + 1) + "] " + item.title + "\nPublisher: " + item.source +
+    (item.published ? "\nPublished: " + item.published : "") +
+    (item.snippet ? "\nSnippet: " + item.snippet : "") +
+    "\nURL: " + item.url
+  ).join("\n\n");
 }
 function appendSearchSources(reply, results) {
   if (!results.length) return reply;
-  return reply + "\\n\\n**वेब पर मिले स्रोत (स्वतंत्र रूप से जाँचें):**\\n" +
+  return reply + "\n\n**वेब पर मिले स्रोत (स्वतंत्र रूप से जाँचें):**\n" +
     results.slice(0, 6).map((item, index) =>
       (index + 1) + ". " + item.title + " — " + item.url +
       (item.published ? " (" + item.published + ")" : "")
-    ).join("\\n");
+    ).join("\n");
 }
 
 function toGeminiContents(history) {
