@@ -668,8 +668,8 @@ export default {
         : item);
       const recruitmentQuestion = isRecruitmentSearch(message);
       const warning = webResults.length
-        ? "लाइव खोज के नतीजे मिले हैं। नीचे जवाब उपलब्ध स्रोतों के आधार पर है; आवेदन की तारीख और स्थिति आधिकारिक नोटिस से ही मानें।\\n\\n"
-        : "लाइव खोज में उपयोगी स्रोत नहीं मिले। वर्तमान भर्ती/तारीख की पुष्टि नहीं हो सकी; अनुमान को तथ्य न मानें।\\n\\n";
+        ? "लाइव खोज के नतीजे मिले हैं। नीचे जवाब उपलब्ध स्रोतों के आधार पर है; आवेदन की तारीख और स्थिति आधिकारिक नोटिस से ही मानें।\n\n"
+        : "लाइव खोज में उपयोगी स्रोत नहीं मिले। वर्तमान भर्ती/तारीख की पुष्टि नहीं हो सकी; अनुमान को तथ्य न मानें।\n\n";
 
       if (url.pathname === "/api/chat/stream") {
         let live = await callGeminiStream(PRIMARY_MODEL, env.GEMINI_API_KEY, groundedHistory, false, searchContext);
@@ -690,9 +690,9 @@ export default {
                   controller.enqueue(part.value);
                 }
                 if (webResults.length) {
-                  const sourceText = "\\n\\nस्रोत:\\n" + webResults.slice(0, 6)
+                  const sourceText = "\n\nस्रोत:\n" + webResults.slice(0, 6)
                     .map((item, index) => (index + 1) + ". " + item.title + " — " + item.url)
-                    .join("\\n");
+                    .join("\n");
                   controller.enqueue(encoder.encode(streamPacket({ text: sourceText })));
                 }
               } finally {
