@@ -65,7 +65,7 @@ jobs:
           ! echo "$result" | grep -q 'मैं यह काम नहीं कर सकता'
           echo "$result" | grep -q '"reply"'
 
-      - name: Check no-billing live RSS search returns source links
+      - name: Check no-billing live web search returns source links
         run: |
           set -euo pipefail
           result="$(curl --silent --show-error --max-time 90 \
@@ -75,7 +75,7 @@ jobs:
           echo "$result"
           echo "$result" | grep -qi 'https\?://'
 
-      - name: Check public RSS search diagnostics
+      - name: Check public web search diagnostics
         run: |
           set -euo pipefail
           result="$(curl --fail-with-body --silent --show-error --max-time 90 "https://bharat-ai-api.gyarasigujjar57.workers.dev/health?searchtest=1")"
