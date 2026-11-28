@@ -5,41 +5,19 @@ const input = document.querySelector("#message");
 const send = document.querySelector("#send");
 const connection = document.querySelector("#connection");
 let activeMode = "assistant";
-const modeHint = document.querySelector("#modeHint");
-const modeTabs = [...document.querySelectorAll("[data-mode]")];
-function setMode(mode) {
-  activeMode = mode === "form" ? "form" : "assistant";
-  modeTabs.forEach(tab => {
-    const selected = tab.dataset.mode === activeMode;
-    tab.classList.toggle("active", selected);
-    tab.setAttribute("aria-pressed", String(selected));
-  });
-  const welcome = document.querySelector("#welcome");
-  const welcomeTitle = document.querySelector("#welcomeTitle");
-  const welcomeDescription = document.querySelector("#welcomeDescription");
-  const quick1 = document.querySelector("#quickPrompt1");
-  const quick2 = document.querySelector("#quickPrompt2");
-  const quick3 = document.querySelector("#quickPrompt3");
-  if (welcome && !chat.querySelector(".message")) welcome.hidden = false;
-  if (activeMode === "form") {
-    modeHint.textContent = "अब इसी चैट में फॉर्म की पूरी मदद मिलेगी";
-    input.placeholder = "बताएँ कौन-सा फॉर्म भरना है…";
-    if (welcomeTitle) welcomeTitle.textContent = "कौन-सा फॉर्म भरना है?";
-    if (welcomeDescription) welcomeDescription.textContent = "बस चैट में फॉर्म या योजना का नाम लिखें। BHARAT FORM AI आधिकारिक जानकारी जाँचेगा, जरूरी सवाल एक-एक करके पूछेगा और आवेदन के हर चरण में मदद करेगा।";
-    if (quick1) { quick1.textContent = "सरकारी भर्ती"; quick1.dataset.q = "मुझे सरकारी भर्ती का फॉर्म भरना है। पहले आधिकारिक नोटिफिकेशन और पात्रता जाँचो।"; }
-    if (quick2) { quick2.textContent = "प्रमाणपत्र"; quick2.dataset.q = "मुझे जाति, आय या मूल निवास प्रमाणपत्र का आवेदन करना है।"; }
-    if (quick3) { quick3.textContent = "छात्रवृत्ति"; quick3.dataset.q = "मुझे छात्रवृत्ति का फॉर्म भरना है।"; }
-  } else {
-    modeHint.textContent = "सामान्य सवाल, पढ़ाई, टेक्नोलॉजी और जानकारी के लिए";
-    input.placeholder = "कुछ भी पूछें — ज़रूरत पड़ने पर BHARAT AI वेब पर खोजे...";
-    if (welcomeTitle) welcomeTitle.textContent = "नमस्ते! मैं BHARAT AI हूँ।";
-    if (welcomeDescription) welcomeDescription.textContent = "पढ़ाई, टेक्नोलॉजी, देश-दुनिया और रोज़मर्रा के सवालों के लिए आपका AI सहायक।";
-    if (quick1) { quick1.textContent = "AI सीखें"; quick1.dataset.q = "मुझे AI सीखना शुरू करना है"; }
-    if (quick2) { quick2.textContent = "पढ़ाई"; quick2.dataset.q = "मुझे पढ़ाई में मदद चाहिए"; }
-    if (quick3) { quick3.textContent = "भारत की जानकारी"; quick3.dataset.q = "भारत के बारे में बताओ"; }
-  }
+// One unified BHARAT AI interface. Form intent is detected automatically or
+// set internally by document/portal helper actions; no visible mode switch.
+function setMode(mode) { activeMode = mode === "form" ? "form" : "assistant"; }
+function detectRequestMode(question) {
+  const q = String(question || "").toLowerCase();
+  const formTerms = [
+    "form", "आवेदन", "भरना है", "भरने में", "भर्ती", "नौकरी का आवेदन",
+    "प्रमाणपत्र", "जाति प्रमाणपत्र", "आय प्रमाणपत्र", "मूल निवास",
+    "छात्रवृत्ति", "स्कॉलरशिप", "पेंशन", "लाइसेंस", "रजिस्ट्रेशन",
+    "admit card", "सरकारी योजना", "सरकारी पोर्टल", "आवेदन करना"
+  ];
+  return activeMode === "form" || formTerms.some(term => q.includes(term)) ? "form" : "assistant";
 }
-modeTabs.forEach(tab => tab.addEventListener("click", () => setMode(tab.dataset.mode)));
 
 function addMessage(text, role) {
   const wrap = document.createElement("div");
@@ -254,8 +232,8 @@ async function ask(question) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        message: activeMode === "form" ? "BHARAT FORM AI MODE: " + question : question,
-        mode: activeMode,
+        message: detectRequestMode(question) === "form" ? "BHARAT FORM AI MODE: " + question : question,
+        mode: detectRequestMode(question),
         history, language: "hi"
       }),
       signal: controller.signal
@@ -521,7 +499,7 @@ document.querySelector("#reset").addEventListener("click", () => {
   chat.querySelectorAll(".message").forEach(message => message.remove());
   const welcome = document.querySelector("#welcome");
   if (welcome) welcome.hidden = false;
-  setMode(activeMode);
+  setMode("assistant");
   input.focus();
 });
 input.addEventListener("keydown", event => {
