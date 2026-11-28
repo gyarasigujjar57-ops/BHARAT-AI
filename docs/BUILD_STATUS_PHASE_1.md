@@ -52,3 +52,12 @@ Last updated: 2026-11-27
 
 ## Definition of done
 A feature is complete only when code is deployed, the real user path is tested, negative/error cases are tested, security/privacy impact is reviewed, and evidence is recorded. A green health endpoint alone does not prove that Gemini replies successfully.
+
+ 
+## 2026-11-28 — Safe portal reader prototype
+- Added a government portal opener restricted in the browser to HTTPS hosts ending in `.gov.in` or `.nic.in`.
+- Added a local page-text mapper that converts matching English/Hindi form labels into generic field categories. It does not forward raw pasted lines or values; only generic categories can be placed into the chat composer after a separate user action.
+- Bumped the service-worker cache to `bharat-ai-v6` so the updated shell can be fetched by returning PWA users.
+- JavaScript syntax checks passed for `app.js`, `sw.js`, and `worker/index.js` (syntax-only; not an Android browser integration test).
+- Static checks confirmed the portal reader UI, HTTPS/domain checks, generic-category-only mapping, and deferred Firebase work.
+- Not yet tested on a real phone or against a live government portal. The app does not fetch page HTML, read authenticated portal content, fill fields, or submit forms. Worker deployment and real Gemini end-to-end verification remain outstanding.
