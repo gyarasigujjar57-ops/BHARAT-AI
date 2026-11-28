@@ -22,6 +22,17 @@ jobs:
           echo "$result"
           echo "$result" | grep -q '"aiReady":true'
 
+      - name: Check the JSON endpoint used by the Android app
+        run: |
+          set -euo pipefail
+          result="$(curl --fail-with-body --silent --show-error --max-time 90 \
+            -H "Content-Type: application/json" \
+            -X POST "https://bharat-ai-api.gyarasigujjar57.workers.dev/api/chat" \
+            --data '{"message":"भारत में पानी का चक्र आसान हिंदी में समझाओ।","history":[],"language":"hi"}')"
+          echo "$result"
+          echo "$result" | grep -q '"reply"'
+          echo "$result" | grep -q 'वाष्पीकरण\|बादल\|बारिश'
+
       - name: Check real streaming response
         run: |
           set -euo pipefail
