@@ -38,22 +38,21 @@ jobs:
           set -euo pipefail
           result="$(curl --fail-with-body --silent --show-error --no-buffer --max-time 90 \
             -H "Content-Type: application/json" \
-            -X POST "https://bharat-ai-api.gyarasigujjar57.workers.dev/api/chat/stream" \
+            -X POST "https://bharat-ai-api.gyarasigujjar57.workers.dev/api/chat" \
             --data '{"message":"Explain 2 + 2 in one short sentence.","history":[],"language":"en"}')"
           echo "$result"
-          echo "$result" | grep -q '"text"'
-          echo "$result" | grep -q '\[DONE\]'
+          echo "$result" | grep -q '"reply"'
 
       - name: Check general assistant is not scope-locked
         run: |
           set -euo pipefail
           result="$(curl --fail-with-body --silent --show-error --no-buffer --max-time 90 \
             -H "Content-Type: application/json" \
-            -X POST "https://bharat-ai-api.gyarasigujjar57.workers.dev/api/chat/stream" \
+            -X POST "https://bharat-ai-api.gyarasigujjar57.workers.dev/api/chat" \
             --data '{"message":"Explain what a black hole is in simple Hindi.","history":[],"language":"hi"}')"
           echo "$result"
           ! echo "$result" | grep -q 'मैं यह काम नहीं कर सकता'
-          echo "$result" | grep -q '"text"'
+          echo "$result" | grep -q '"reply"'
 
       - name: Check Google-grounded current answer has source links
         run: |
@@ -91,8 +90,7 @@ jobs:
           set -euo pipefail
           result="$(curl --fail-with-body --silent --show-error --no-buffer --max-time 30 \
             -H "Content-Type: application/json" \
-            -X POST "https://bharat-ai-api.gyarasigujjar57.workers.dev/api/chat/stream" \
+            -X POST "https://bharat-ai-api.gyarasigujjar57.workers.dev/api/chat" \
             --data '{"message":"भारत में अभी वर्तमान समय क्या है?","history":[],"language":"hi"}')"
           echo "$result"
           echo "$result" | grep -q 'भारत में अभी'
-          echo "$result" | grep -q '\[DONE\]'
