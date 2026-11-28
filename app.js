@@ -462,7 +462,9 @@ document.querySelector("#mapPortalFields")?.addEventListener("click", () => {
     // Only retain a possible label, never the text after a colon (which may be a value).
     const label = line.split(/[:：]/, 1)[0].replace(/[＊*•·]+$/g, "").trim();
     if (!label || label.length > 90) continue;
-    if (portalFieldTerms.some(([, pattern]) => pattern.test(label))) found.add(label);
+    for (const [safeCategory, pattern] of portalFieldTerms) {
+      if (pattern.test(label)) found.add(safeCategory);
+    }
   }
   latestPortalFieldLabels = [...found].slice(0, 40);
   output.replaceChildren();
