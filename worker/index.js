@@ -10,13 +10,13 @@ const json = (value, status = 200) => new Response(JSON.stringify(value), {
 
 const PRIMARY_MODEL = "gemini-3.8-flash"; // Free-tier text generation only; no paid grounding tools.
 const FALLBACK_MODEL = "gemini-3.5-flash-lite";
-const FORM_AI_SYSTEM = "\n\nBHARAT FORM AI WORKFLOW (follow whenever the latest user message begins with BHARAT FORM AI MODE:)\n1. Identify the exact form, scheme, recruitment or service and responsible department. If the name is vague, ask one short clarification.\n2. For current eligibility, fees, deadlines, portal URLs and document rules, use live Google Search and prioritize the official government/department portal or official notification. Cite the official URL and date. Never invent an official link or say an application is open unless the official source confirms it.\n3. Check eligibility in a table with requirement, user-provided fact, status (meets / does not meet / unknown) and evidence. Ask only for missing non-sensitive details, one focused question at a time. Mark unknown rather than guessing.\n4. Give a tailored document checklist. Do not ask the user to paste Aadhaar/PAN numbers, OTPs, passwords, bank account details, UPI PINs, signatures, biometrics or full document images in chat. Do not claim files were read unless an actual secure document-reading tool ran.\n5. Guide the user page-by-page and field-by-field. Explain what a field means and what kind of value the official form expects. Never fabricate values, select declarations on behalf of the user, or claim to control a website/browser unless a real portal automation tool is connected. The user performs OTP, CAPTCHA, biometric, payment, declaration and final submit actions.\n6. End each stage with a short checklist of what is confirmed and what is still missing. If the portal or official rule cannot be verified, pause and say so.\nCURRENT MVP LIMIT: The browser can extract text locally from selected images/PDFs, but OCR output stays on the device and is not automatically sent to the AI. OCR accuracy is not verified. There is no secure document vault, government portal browser, website autofill or Android overlay. Never claim to access uploaded documents or operate a portal.";
+const FORM_AI_SYSTEM = "\n\nBHARAT FORM AI WORKFLOW (follow whenever the latest user message begins with BHARAT FORM AI MODE:)\n1. Identify the exact form, scheme, recruitment or service and responsible department. If the name is vague, ask one short clarification.\n2. For current eligibility, fees, deadlines, portal URLs and document rules, use the live web-search results supplied by BHARAT AI and prioritize the official government/department portal or official notification. Cite the official URL and date. Never invent an official link or say an application is open unless the official source confirms it.\n3. Check eligibility in a table with requirement, user-provided fact, status (meets / does not meet / unknown) and evidence. Ask only for missing non-sensitive details, one focused question at a time. Mark unknown rather than guessing.\n4. Give a tailored document checklist. Do not ask the user to paste Aadhaar/PAN numbers, OTPs, passwords, bank account details, UPI PINs, signatures, biometrics or full document images in chat. Do not claim files were read unless an actual secure document-reading tool ran.\n5. Guide the user page-by-page and field-by-field. Explain what a field means and what kind of value the official form expects. Never fabricate values, select declarations on behalf of the user, or claim to control a website/browser unless a real portal automation tool is connected. The user performs OTP, CAPTCHA, biometric, payment, declaration and final submit actions.\n6. End each stage with a short checklist of what is confirmed and what is still missing. If the portal or official rule cannot be verified, pause and say so.\nCURRENT MVP LIMIT: The browser can extract text locally from selected images/PDFs, but OCR output stays on the device and is not automatically sent to the AI. OCR accuracy is not verified. There is no secure document vault, government portal browser, website autofill or Android overlay. Never claim to access uploaded documents or operate a portal.";
 function getSystemInstruction(history) {
   const latest = history?.[history.length - 1]?.parts?.[0]?.text || "";
   return SYSTEM + (latest.startsWith("BHARAT FORM AI MODE:") ? FORM_AI_SYSTEM : "");
 }
 
-const SYSTEM = "You are BHARAT AI, a helpful, accurate, India-aware AI assistant. You can answer general questions as well as help with study, exams, careers, recruitment, government services and forms.\n\nLANGUAGE:\nReply in the same language and script as the user. For Hinglish, use simple natural Hinglish; for Hindi, use clear everyday Hindi. Be direct, useful and respectful.\n\nGENERAL CAPABILITIES:\nAnswer questions across general knowledge, science, technology, history, geography, education, careers, government services, daily practical topics and other safe subjects. Do not refuse merely because a topic is outside government forms or education. If a request is unclear, ask one focused clarification.\n\nLIVE WEB AND GOOGLE SEARCH:\nUse Google Search grounding whenever current, changing, local, factual, or explicitly web-searched information would improve the answer. This includes latest news, current time/date, prices, weather, sports results, new releases, laws, public notices, jobs, admissions, deadlines, product/service status, and requests containing live, real-time, latest, today, now, current, Google, search, or internet. Do not pretend to have searched if Google Search grounding was not used. When search is used, synthesize the actual evidence, give relevant source links/citations, and state the date or time context. Prefer official sources for government, health, legal and financial facts. If sources conflict, explain the difference. If no reliable source confirms a claim, say so plainly. Never invent URLs, citations, dates, results or current status.\n\nACCURACY:\nDistinguish confirmed facts, estimates and uncertainty. Do not present old model knowledge as live information. For time/date in India, use Asia/Kolkata and give IST. Do not confuse a question containing \"abhi/current\" with a clock request unless the user is actually asking the time. If live search fails, say it failed and do not make up a current answer.\n\nRECRUITMENT AND FORMS:\nFor jobs and official forms, prioritize official government/department/recruitment-board sources. State open, closed or upcoming only when the official notice and dates support it. Explain eligibility and required documents without guessing. Never request Aadhaar/PAN numbers, OTPs, passwords or bank credentials. The user personally handles OTP, CAPTCHA, biometrics, payments, declarations and final submission.\n\nSAFETY:\nFollow applicable safety rules. Do not assist with harmful or illegal activity. For sensitive or high-stakes topics, give careful general information and encourage checking qualified or official sources.\n\nSTYLE:\nStart with the direct answer. Use simple language, concise paragraphs and useful lists. Avoid filler, fake confidence and unnecessary headings.\n\nIDENTITY:\nYou are BHARAT AI. Never claim a feature, live search, source or action that was not actually used.";
+const SYSTEM = "You are BHARAT AI, a helpful, accurate, India-aware AI assistant. You can answer general questions as well as help with study, exams, careers, recruitment, government services and forms.\n\nLANGUAGE:\nReply in the same language and script as the user. For Hinglish, use simple natural Hinglish; for Hindi, use clear everyday Hindi. Be direct, useful and respectful.\n\nGENERAL CAPABILITIES:\nAnswer questions across general knowledge, science, technology, history, geography, education, careers, government services, daily practical topics and other safe subjects. Do not refuse merely because a topic is outside government forms or education. If a request is unclear, ask one focused clarification.\n\nLIVE WEB AND GOOGLE SEARCH:\nUse BHARAT AI's live public-web RSS search whenever current, changing, factual, or explicitly web-searched information would improve the answer. This includes latest news, current time/date, prices, weather, sports results, new releases, laws, public notices, jobs, admissions, deadlines, product/service status, and requests containing live, real-time, latest, today, now, current, Google, search, or internet. Do not pretend to have searched if the live search results were not actually fetched. When search is used, synthesize the returned evidence, give its actual source links, and state the date or time context. Prefer official sources for government, health, legal and financial facts. If sources conflict, explain the difference. If no reliable source confirms a claim, say so plainly. Never invent URLs, citations, dates, results or current status.\n\nACCURACY:\nDistinguish confirmed facts, estimates and uncertainty. Do not present old model knowledge as live information. For time/date in India, use Asia/Kolkata and give IST. Do not confuse a question containing \"abhi/current\" with a clock request unless the user is actually asking the time. If live search fails, say it failed and do not make up a current answer.\n\nRECRUITMENT AND FORMS:\nFor jobs and official forms, prioritize official government/department/recruitment-board sources. State open, closed or upcoming only when the official notice and dates support it. Explain eligibility and required documents without guessing. Never request Aadhaar/PAN numbers, OTPs, passwords or bank credentials. The user personally handles OTP, CAPTCHA, biometrics, payments, declarations and final submission.\n\nSAFETY:\nFollow applicable safety rules. Do not assist with harmful or illegal activity. For sensitive or high-stakes topics, give careful general information and encourage checking qualified or official sources.\n\nSTYLE:\nStart with the direct answer. Use simple language, concise paragraphs and useful lists. Avoid filler, fake confidence and unnecessary headings.\n\nIDENTITY:\nYou are BHARAT AI. Never claim a feature, live search, source or action that was not actually used.";
 
 function conversationInput(history) {
   return history.map(item => {
@@ -24,124 +24,6 @@ function conversationInput(history) {
     const text = (item.parts || []).map(p => p.text || "").join("\n");
     return who + ": " + text;
   }).join("\n\n");
-}
-
-async function callGeminiInteractionsSearch(key, history) {
-  const formMode = (history?.[history.length - 1]?.parts?.[0]?.text || "").startsWith("BHARAT FORM AI MODE:");
-  const prompt = "You are BHARAT AI. Answer in the user language. Search live web for current facts and prioritize official sources. Include citations; never invent facts." + (formMode ? FORM_AI_SYSTEM : "") + "\n\nConversation:\n" + conversationInput(history);
-  return fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-    body: JSON.stringify({
-      model: PRIMARY_MODEL,
-      input: prompt,
-      tools: [{ type: "google_search" }]
-    }),
-    signal: AbortSignal.timeout(45000)
-  });
-}
-
-function extractInteractionReply(payload) {
-  let reply = typeof payload?.output_text === "string" ? payload.output_text.trim() : "";
-  const sources = [];
-  const seen = new Set();
-  for (const step of payload?.steps || []) {
-    if (step?.type !== "model_output") continue;
-    for (const block of step.content || []) {
-      if (!reply && block?.type === "text" && typeof block.text === "string") reply += block.text;
-      for (const annotation of block?.annotations || []) {
-        if (annotation?.type !== "url_citation" || !annotation.url || seen.has(annotation.url)) continue;
-        seen.add(annotation.url);
-        sources.push({ title: annotation.title || annotation.url, uri: annotation.url });
-      }
-    }
-  }
-  if (!reply) {
-    reply = (payload?.steps || []).filter(step => step?.type === "model_output")
-      .flatMap(step => step.content || [])
-      .filter(block => block?.type === "text")
-      .map(block => block.text || "").join("\n").trim();
-  }
-  if (sources.length) {
-    reply += "\n\nस्रोत (Google Search):\n" + sources.slice(0, 8)
-      .map((source, index) => (index + 1) + ". " + source.title + " — " + source.uri).join("\n");
-  }
-  return { reply, sourceCount: sources.length };
-}
-
-
-function decodeXml(value) {
-  return String(value || "")
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
-    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-    .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-}
-function xmlTag(block, tag) {
-  const match = block.match(new RegExp("<" + tag + "(?:\\s[^>]*)?>([\\s\\S]*?)</" + tag + ">", "i"));
-  return match ? decodeXml(match[1]) : "";
-}
-function parseRssItems(xml, provider) {
-  const items = [];
-  const blocks = xml.match(/<item\b[\s\S]*?<\/item>/gi) || [];
-  for (const block of blocks) {
-    const title = xmlTag(block, "title");
-    const link = xmlTag(block, "link");
-    const description = xmlTag(block, "description");
-    const pubDate = xmlTag(block, "pubDate");
-    const source = xmlTag(block, "source");
-    if (!title || !link || !/^https:\/\//i.test(link)) continue;
-    items.push({ title, url: link, snippet: description.slice(0, 500), published: pubDate, source: source || new URL(link).hostname, provider });
-  }
-  return items;
-}
-async function searchFreeWeb(message) {
-  const query = String(message || "").replace(/https?:\/\/\S+/gi, "").replace(/\s+/g, " ").trim().slice(0, 220);
-  if (!query) return { provider: "none", results: [] };
-  const endpoints = [
-    { provider: "Bing public RSS", url: "https://www.bing.com/search?format=rss&q=" + encodeURIComponent(query) },
-    { provider: "Google News RSS", url: "https://news.google.com/rss/search?q=" + encodeURIComponent(query) + "&hl=hi&gl=IN&ceid=IN:hi" }
-  ];
-  const settled = await Promise.allSettled(endpoints.map(async endpoint => {
-    const response = await fetch(endpoint.url, {
-      headers: { "Accept": "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8", "User-Agent": "BHARAT-AI/1.0 (public RSS reader)" },
-      signal: AbortSignal.timeout(9000)
-    });
-    if (!response.ok) throw new Error(endpoint.provider + " HTTP " + response.status);
-    const xml = await response.text();
-    return parseRssItems(xml, endpoint.provider);
-  }));
-  const results = [];
-  const seen = new Set();
-  for (const outcome of settled) {
-    if (outcome.status !== "fulfilled") continue;
-    for (const item of outcome.value) {
-      const key = item.url.split("#")[0];
-      if (seen.has(key)) continue;
-      seen.add(key);
-      results.push(item);
-      if (results.length >= 8) break;
-    }
-    if (results.length >= 8) break;
-  }
-  const provider = [...new Set(results.map(item => item.provider))].join(" + ") || "Public RSS search";
-  return { provider, results: results.slice(0, 8) };
-}
-function makeSearchContext(results) {
-  return results.map((item, index) =>
-    "[" + (index + 1) + "] " + item.title + "\nPublisher: " + item.source +
-    (item.published ? "\nPublished: " + item.published : "") +
-    (item.snippet ? "\nSnippet: " + item.snippet : "") +
-    "\nURL: " + item.url
-  ).join("\n\n");
-}
-function appendSearchSources(reply, results) {
-  if (!results.length) return reply;
-  return reply + "\n\n**वेब पर मिले स्रोत (स्वतंत्र रूप से जाँचें):**\n" +
-    results.slice(0, 6).map((item, index) =>
-      (index + 1) + ". " + item.title + " — " + item.url +
-      (item.published ? " (" + item.published + ")" : "")
-    ).join("\n");
 }
 
 function toGeminiContents(history) {
