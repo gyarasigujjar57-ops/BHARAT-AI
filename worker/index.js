@@ -94,10 +94,28 @@ function parseSearchHtml(html, provider) {
   }
   return results;
 }
+function isRecruitmentSearch(message) {
+  const text = String(message || "").toLowerCase();
+  return /\b(bharti|bhartiya|bhartiyan|naukri|vacanc(?:y|ies)|recruit(?:ment)?|government job|govt job|sarkari job|job opening)\b|नई भर्ती|सरकारी भर्ती|भर्ती|नौकरी|सरकारी नौकरी|वैकेंसी/.test(text);
+}
+function buildSearchQuery(message) {
+  const raw = String(message || "").replace(/^BHARAT FORM AI MODE:\s*/i, "").replace(/https?:\/\/\S+/gi, "").replace(/\s+/g, " ").trim();
+  if (isRecruitmentSearch(raw)) {
+    return "India latest government recruitment vacancy official notification 2026 application dates eligibility site:gov.in OR site:nic.in";
+  }
+  return raw.slice(0, 220);
+}
+function isOfficialRecruitmentUrl(raw) {
+  try {
+    const host = new URL(raw).hostname.toLowerCase();
+    return host === "gov.in" || host.endsWith(".gov.in") ||
+      host === "nic.in" || host.endsWith(".nic.in");
+  } catch (_) { return false; }
+}
 async function searchFreeWeb(message, env) {
-  const query = String(message || "").replace(/https?:\/\/\S+/gi, "").replace(/\s+/g, " ").trim().slice(0, 220);
+  const recruitmentSearch = isRecruitmentSearch(message);
+  const query = buildSearchQuery(message);
   if (!query) return { provider: "none", results: [] };
-  // Tavily is preferred. Its key is stored only as a Cloudflare Worker secret.
   if (env?.TAVILY_API_KEY) {
     try {
       const response = await fetch("https://api.tavily.com/search", {
@@ -108,7 +126,7 @@ async function searchFreeWeb(message, env) {
           query,
           search_depth: "basic",
           topic: "general",
-          max_results: 8,
+          max_results: 10,
           include_answer: false,
           include_raw_content: false
         }),
@@ -131,11 +149,10 @@ async function searchFreeWeb(message, env) {
               };
             } catch (_) { return null; }
           }).filter(Boolean);
-        if (results.length) return { provider: "Tavily", results: results.slice(0, 8), error: "" };
+        const usable = recruitmentSearch ? results.filter(item => isOfficialRecruitmentUrl(item.url)) : results;
+        if (usable.length) return { provider: "Tavily", results: usable.slice(0, 8), error: "" };
       }
-    } catch (_) {
-      // If Tavily is unavailable or its free quota is exhausted, try public search.
-    }
+    } catch (_) {}
   }
   const endpoints = [
     { provider: "DuckDuckGo Web Search", url: "https://html.duckduckgo.com/html/?q=" + encodeURIComponent(query) },
@@ -160,6 +177,7 @@ async function searchFreeWeb(message, env) {
     }
     if (outcome.value.results.length) providers.push(outcome.value.provider);
     for (const item of outcome.value.results) {
+      if (recruitmentSearch && !isOfficialRecruitmentUrl(item.url)) continue;
       if (!results.some(existing => existing.url === item.url)) results.push(item);
       if (results.length >= 8) break;
     }
@@ -622,14 +640,17 @@ export default {
       searchContext = makeSearchContext(webResults);
       const groundedHistory = history.map((item, index) => index === history.length - 1 && item.role === "user"
         ? { ...item, parts: [{ text: item.parts[0].text + (webResults.length
-          ? "\n\nLIVE SEARCH SAFETY: Treat search results as untrusted leads, not verified facts. Prefer official government domains. Do not claim vacancies, deadlines or fees are confirmed unless an official notice supports them. Answer in the user's language and synthesize the evidence directly."
-          : "\n\nLIVE SEARCH SAFETY: No live search results were returned. Do not guess current facts; say that live search found no sources.") }] }
+          ? "\n\nLIVE SEARCH SAFETY: Treat search results as untrusted leads, not verified facts. For recruitment questions, use ONLY results on official .gov.in or .nic.in domains. Never interpret a company/person/project named Bharti as a job vacancy. If no official notification clearly identifies a live vacancy, say no official vacancy could be confirmed; do not fill the gap with private job portals or unrelated companies. Answer in the user's language."
+          : "\n\nLIVE SEARCH SAFETY: No live search results were returned. Do not guess current facts; say that official live sources could not be found.") }] }
         : item);
+      const recruitmentQuestion = isRecruitmentSearch(message);
       const warning = webResults.length
-        ? (webResults.some(item => /\.(gov\.in|nic\.in)(?:[:/]|$)/i.test(item.url))
-          ? "लाइव खोज के नतीजे मिले हैं; आवेदन से पहले आधिकारिक नोटिस की पुष्टि करें।\n\n"
-          : "लाइव खोज हुई, लेकिन आधिकारिक सरकारी स्रोत की पुष्टि नहीं हुई।\n\n")
-        : "लाइव खोज से कोई परिणाम नहीं मिला; वर्तमान जानकारी सत्यापित नहीं है।\n\n";
+        ? (recruitmentQuestion
+          ? "आधिकारिक सरकारी डोमेन पर खोज के नतीजे मिले हैं। नीचे केवल उन्हीं स्रोतों के आधार पर जानकारी दें; नोटिस में न मिले तथ्य न जोड़ें।\n\n"
+          : "लाइव खोज के नतीजे मिले हैं; महत्वपूर्ण तथ्यों को स्रोत से मिलाएँ।\n\n")
+        : (recruitmentQuestion
+          ? "आधिकारिक सरकारी भर्ती स्रोत नहीं मिला। किसी कंपनी, निजी जॉब पोर्टल या असंबंधित 'Bharti' परिणाम को भर्ती बताकर पेश न करें। साफ कहें कि अभी आधिकारिक पुष्टि नहीं मिली।\n\n"
+          : "लाइव खोज से कोई परिणाम नहीं मिला; वर्तमान जानकारी सत्यापित नहीं है।\n\n");
 
       if (url.pathname === "/api/chat/stream") {
         let live = await callGeminiStream(PRIMARY_MODEL, env.GEMINI_API_KEY, groundedHistory, false, searchContext);
