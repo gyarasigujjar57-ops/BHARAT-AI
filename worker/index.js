@@ -99,17 +99,30 @@ function isRecruitmentSearch(message) {
   return /\b(bharti|bhartiya|bhartiyan|naukri|vacanc(?:y|ies)|recruit(?:ment)?|government job|govt job|sarkari job|job opening)\b|नई भर्ती|सरकारी भर्ती|भर्ती|नौकरी|सरकारी नौकरी|वैकेंसी/.test(text);
 }
 function buildSearchQuery(message) {
-  const raw = String(message || "").replace(/^BHARAT FORM AI MODE:\s*/i, "").replace(/https?:\/\/\S+/gi, "").replace(/\s+/g, " ").trim();
+  const raw = String(message || "")
+    .replace(/^BHARAT FORM AI MODE:\s*/i, "")
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!raw) return "";
   if (isRecruitmentSearch(raw)) {
-    return "India latest government recruitment vacancy official notification 2026 application dates eligibility site:gov.in OR site:nic.in";
+    const year = new Date().getUTCFullYear();
+    const normalized = raw
+      .replace(/\b(bata|bta|btao)\b/gi, " ")
+      .replace(/\b(new|latest|current|today)\b/gi, " ")
+      .replace(/नई|नयी|नया|बताओ|बता|बताइए/g, " ");
+    return (normalized + " government recruitment vacancy notification " + year +
+      " official recruitment board application open last date eligibility")
+      .replace(/\s+/g, " ").trim().slice(0, 320);
   }
-  return raw.slice(0, 220);
+  return raw.slice(0, 320);
 }
 function isOfficialRecruitmentUrl(raw) {
   try {
     const host = new URL(raw).hostname.toLowerCase();
     return host === "gov.in" || host.endsWith(".gov.in") ||
-      host === "nic.in" || host.endsWith(".nic.in");
+      host === "nic.in" || host.endsWith(".nic.in") ||
+      host.endsWith(".gov") || /(^|\.)(ojas|rsmssb|rssb|rpsc|upsc|ssc|nta|joinindianarmy|joinindiannavy|agnipathvayu)\./.test(host);
   } catch (_) { return false; }
 }
 async function searchFreeWeb(message, env) {
@@ -198,8 +211,18 @@ function makeSearchContext(results) {
   ).join("\n\n");
 }
 function appendSearchSources(reply, results) {
-  // Do not append generic source dumps; the model adds a link only when essential.
-  return reply;
+  if (!Array.isArray(results) || !results.length) return reply;
+  const unique = [];
+  const seen = new Set();
+  for (const item of results) {
+    if (!item?.url || seen.has(item.url)) continue;
+    seen.add(item.url);
+    unique.push(item);
+    if (unique.length >= 6) break;
+  }
+  if (!unique.length) return reply;
+  return String(reply || "").trim() + "\n\nस्रोत:\n" +
+    unique.map((item, index) => (index + 1) + ". " + item.title + " — " + item.url).join("\n");
 }
 function toGeminiContents(history) {
   return history.map(item => ({
@@ -224,7 +247,7 @@ async function callGemini(model, key, history, maxOutputTokens = 1400, useSearch
 }
 
 async function callGeminiStream(model, key, history, useSearch = false, searchContext = "") {
-  const systemText = getSystemInstruction(history) + (searchContext ? "\n\nThe user's question has already passed BHARAT AI's scope filter and is an in-scope education/recruitment/government-service request. Do not refuse it as out of scope. Answer using the supplied search evidence.\n\nLIVE WEB SEARCH RESULTS (untrusted snippets; verify dates and prefer official domains):\n" + searchContext + "\nUse these results as evidence, but do not dump URLs or a sources list. Give at most one essential official link when needed, and clearly say when no official source confirms a claim." : "");
+  const systemText = getSystemInstruction(history) + (searchContext ? "\n\nThe user's question needs current information. Answer directly in the user's language using the supplied live search evidence. For government recruitment, provide department/post, vacancies, eligibility, application start/end dates and current open/closed status only when supported by an official notification or official application portal. Separate confirmed facts from unverified leads. Never invent dates, post counts, eligibility or status. If no official notice confirms a vacancy, say that clearly. Give a concise useful answer, not a generic link dump.\n\nLIVE WEB SEARCH RESULTS (untrusted leads; verify dates and prefer primary/official sources):\n" + searchContext + "\nCite the relevant source titles and URLs in the final answer. : "");
   return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":streamGenerateContent?alt=sse", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
@@ -644,23 +667,9 @@ export default {
           : "\n\nLIVE SEARCH SAFETY: No live search results were returned. Do not guess current facts; say that official live sources could not be found.") }] }
         : item);
       const recruitmentQuestion = isRecruitmentSearch(message);
-      if (recruitmentQuestion) {
-        const officialLinks = webResults.slice(0, 5).map((item, index) =>
-          (index + 1) + ". [" + item.title.replace(/[\[\]]/g, "") + "](" + item.url + ")"
-        ).join("\n");
-        const safeReply = webResults.length
-          ? "आप सरकारी भर्ती पूछ रहे हैं। खोज में कुछ आधिकारिक सरकारी वेबसाइटों के पेज मिले हैं, लेकिन केवल search snippet से किसी खास पद की अधिसूचना, योग्यता, आवेदन शुरू होने की तारीख या अंतिम तारीख की पुष्टि नहीं हो सकती। इसलिए मैं अभी किसी भर्ती को Open बताकर या तारीख/पद बताकर गलत जानकारी नहीं दूँगा।\n\nआधिकारिक पेज जिन्हें आगे जाँचना है:\n" + officialLinks + "\n\nकिसी भर्ती को पक्का बताने से पहले उसके मूल PDF/अधिसूचना और आवेदन पोर्टल की स्थिति जाँचना जरूरी है। राज्य या विभाग का नाम लिखें तो खोज उसी तक सीमित की जा सकती है।"
-          : "आप सरकारी भर्ती पूछ रहे हैं। अभी खोज में कोई आधिकारिक सरकारी भर्ती पेज नहीं मिला। इसलिए मैं किसी कंपनी या निजी जॉब वेबसाइट की जानकारी को सरकारी भर्ती बताकर नहीं दूँगा। राज्य या विभाग (जैसे राजस्थान, रेलवे, SSC, सेना) का नाम लिखें; उसी के आधिकारिक स्रोतों पर खोज सीमित की जा सकती है।";
-        if (url.pathname === "/api/chat/stream") return clockStream(safeReply);
-        return json({ reply: safeReply, model: "BHARAT AI official-source guard", liveSearchUsed: webResults.length > 0, liveSearchUnavailable: webResults.length === 0, searchDiagnostics: { searchProvider, resultCount: webResults.length, error: searchError } });
-      }
       const warning = webResults.length
-        ? (recruitmentQuestion
-          ? "आधिकारिक सरकारी डोमेन पर खोज के नतीजे मिले हैं। नीचे केवल उन्हीं स्रोतों के आधार पर जानकारी दें; नोटिस में न मिले तथ्य न जोड़ें।\n\n"
-          : "लाइव खोज के नतीजे मिले हैं; महत्वपूर्ण तथ्यों को स्रोत से मिलाएँ।\n\n")
-        : (recruitmentQuestion
-          ? "आधिकारिक सरकारी भर्ती स्रोत नहीं मिला। किसी कंपनी, निजी जॉब पोर्टल या असंबंधित 'Bharti' परिणाम को भर्ती बताकर पेश न करें। साफ कहें कि अभी आधिकारिक पुष्टि नहीं मिली।\n\n"
-          : "लाइव खोज से कोई परिणाम नहीं मिला; वर्तमान जानकारी सत्यापित नहीं है।\n\n");
+        ? "लाइव खोज के नतीजे मिले हैं। नीचे जवाब उपलब्ध स्रोतों के आधार पर है; आवेदन की तारीख और स्थिति आधिकारिक नोटिस से ही मानें।\\n\\n"
+        : "लाइव खोज में उपयोगी स्रोत नहीं मिले। वर्तमान भर्ती/तारीख की पुष्टि नहीं हो सकी; अनुमान को तथ्य न मानें।\\n\\n";
 
       if (url.pathname === "/api/chat/stream") {
         let live = await callGeminiStream(PRIMARY_MODEL, env.GEMINI_API_KEY, groundedHistory, false, searchContext);
