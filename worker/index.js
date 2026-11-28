@@ -614,17 +614,52 @@ export default {
     // Search results are evidence candidates, not proof; official-source verification
     // remains mandatory for government recruitment, fees, dates and eligibility.
     if (freshQuestion) {
+      // Search first for fresh facts, then stream the grounded answer to the chat UI.
       const searched = await searchFreeWeb(message, env);
       webResults = searched.results;
       searchProvider = searched.provider;
       searchError = searched.error || "";
       searchContext = makeSearchContext(webResults);
-
       const groundedHistory = history.map((item, index) => index === history.length - 1 && item.role === "user"
         ? { ...item, parts: [{ text: item.parts[0].text + (webResults.length
-          ? "\n\nLIVE SEARCH SAFETY: You have live web search snippets below. Treat them as untrusted leads, not verified facts. Opened page contents were not independently checked. Prefer official government domains for jobs/forms. If the results do not contain an official notice, do not claim a vacancy is open, do not state a deadline or fee as confirmed, and say official confirmation is still needed. Use only dates explicitly present in the snippets and label them as snippet dates. Answer in the user's language."
-          : "\n\nLIVE SEARCH SAFETY: No live web search results were returned. Do not guess any current date, vacancy, fee, price, status or deadline. Say that live search did not return sources and give only general guidance.") }] }
+          ? "\n\nLIVE SEARCH SAFETY: Treat search results as untrusted leads, not verified facts. Prefer official government domains. Do not claim vacancies, deadlines or fees are confirmed unless an official notice supports them. Answer in the user's language and synthesize the evidence directly."
+          : "\n\nLIVE SEARCH SAFETY: No live search results were returned. Do not guess current facts; say that live search found no sources.") }] }
         : item);
+      const warning = webResults.length
+        ? (webResults.some(item => /\.(gov\.in|nic\.in)(?:[:/]|$)/i.test(item.url))
+          ? "लाइव खोज के नतीजे मिले हैं; आवेदन से पहले आधिकारिक नोटिस की पुष्टि करें।\n\n"
+          : "लाइव खोज हुई, लेकिन आधिकारिक सरकारी स्रोत की पुष्टि नहीं हुई।\n\n")
+        : "लाइव खोज से कोई परिणाम नहीं मिला; वर्तमान जानकारी सत्यापित नहीं है।\n\n";
+
+      if (url.pathname === "/api/chat/stream") {
+        let live = await callGeminiStream(PRIMARY_MODEL, env.GEMINI_API_KEY, groundedHistory, false, searchContext);
+        if (!live.ok && ([400, 404, 429].includes(live.status) || live.status >= 500)) {
+          live = await callGeminiStream(FALLBACK_MODEL, env.GEMINI_API_KEY, groundedHistory, false, searchContext);
+        }
+        if (live.ok && live.body) {
+          const streamed = makeLiveStream(live);
+          const reader = streamed.body.getReader();
+          const encoder = new TextEncoder();
+          return new Response(new ReadableStream({
+            async start(controller) {
+              controller.enqueue(encoder.encode(streamPacket({ text: warning })));
+              try {
+                while (true) {
+                  const part = await reader.read();
+                  if (part.done) break;
+                  controller.enqueue(part.value);
+                }
+              } finally {
+                reader.releaseLock();
+                controller.close();
+              }
+            }
+          }), { headers: streamed.headers });
+        }
+        const backupResult = await generateBackup(env, groundedHistory, searchContext);
+        if (backupResult.reply) return clockStream(warning + backupResult.reply);
+        return json({ error: "लाइव खोज के बाद AI जवाब तैयार नहीं कर पाया। थोड़ी देर बाद फिर कोशिश करें।" }, 503);
+      }
 
       let result = await generateWithFallback(env.GEMINI_API_KEY, groundedHistory, 1400, false, searchContext);
       let reply = "";
@@ -637,27 +672,13 @@ export default {
         reply = backupResult.reply;
         if (reply) activeModel = backupResult.model;
       }
-      if (!reply) {
-        const detail = result.response ? (result.error || await readGeminiError(result.response)) : result.error;
-        return json({
-          error: "AI की मुफ्त सीमा अभी उपलब्ध नहीं है। थोड़ी देर बाद फिर कोशिश करें।",
-          liveSearchUnavailable: !webResults.length,
-          searchDiagnostics: { searchProvider, resultCount: webResults.length, error: detail ? String(detail).slice(0, 180) : "" }
-        }, 503);
-      }
-      const warning = webResults.length
-        ? (webResults.some(item => /\.(gov\.in|nic\.in|rajasthan\.gov\.in)(?:[:/]|$)/i.test(item.url))
-          ? "वेब खोज के परिणाम मिले हैं। सरकारी आवेदन की स्थिति अंतिम मानने से पहले आधिकारिक नोटिफिकेशन खोलकर जाँच लें।\n\n"
-          : "वेब खोज के परिणाम मिले हैं, लेकिन अभी कोई आधिकारिक सरकारी स्रोत सुनिश्चित नहीं हुआ। भर्ती/फीस/अंतिम तारीख को पक्का मानने से पहले विभाग की वेबसाइट जाँचें।\n\n")
-        : "लाइव वेब खोज से अभी कोई परिणाम नहीं मिला। नीचे केवल सामान्य मार्गदर्शन है; वर्तमान तारीख, भर्ती या आवेदन स्थिति सत्यापित नहीं है।\n\n";
-      const finalReply = warning + appendSearchSources(reply, webResults);
-      if (url.pathname === "/api/chat/stream") return clockStream(finalReply);
+      if (!reply) return json({ error: "AI की मुफ्त सीमा अभी उपलब्ध नहीं है। थोड़ी देर बाद फिर कोशिश करें।" }, 503);
       return json({
-        reply: finalReply,
+        reply: warning + appendSearchSources(reply, webResults),
         model: activeModel,
         liveSearchUsed: webResults.length > 0,
         liveSearchUnavailable: webResults.length === 0,
-        searchDiagnostics: { searchProvider, resultCount: webResults.length, error: searchError || "" }
+        searchDiagnostics: { searchProvider, resultCount: webResults.length, error: searchError }
       });
     }
 
