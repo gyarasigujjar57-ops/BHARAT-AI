@@ -19,68 +19,15 @@
 <main id="chat" aria-live="polite">
   <section class="welcome" id="welcome">
     <div class="welcome-icon">भा</div>
-    <h1>नमस्ते! मैं BHARAT AI हूँ।</h1>
-    <p>पढ़ाई, टेक्नोलॉजी, देश-दुनिया और रोज़मर्रा के सवालों के लिए आपका AI सहायक।</p>
+    <h1 id="welcomeTitle">नमस्ते! मैं BHARAT AI हूँ।</h1>
+    <p id="welcomeDescription">पढ़ाई, टेक्नोलॉजी, देश-दुनिया और रोज़मर्रा के सवालों के लिए आपका AI सहायक।</p>
     <div class="quick-prompts">
-      <button data-q="मुझे AI सीखना शुरू करना है">AI सीखें</button>
-      <button data-q="मुझे पढ़ाई में मदद चाहिए">पढ़ाई</button>
-      <button data-q="भारत के बारे में बताओ">भारत की जानकारी</button>
+      <button id="quickPrompt1" data-q="मुझे AI सीखना शुरू करना है">AI सीखें</button>
+      <button id="quickPrompt2" data-q="मुझे पढ़ाई में मदद चाहिए">पढ़ाई</button>
+      <button id="quickPrompt3" data-q="भारत के बारे में बताओ">भारत की जानकारी</button>
     </div>
   </section>
-  <section class="form-start" id="formStart" hidden>
-    <div class="form-kicker">BHARAT FORM AI</div>
-    <h1>कौन-सा फॉर्म भरना है?</h1>
-    <p class="form-intro">पहले फॉर्म पहचानेंगे, फिर पात्रता और दस्तावेज़ जाँचेंगे। उसके बाद हर पेज पर आपको सही कदम बताएँगे।</p>
-    <label for="formName">फॉर्म / योजना / भर्ती का नाम</label>
-    <input id="formName" type="text" maxlength="120" placeholder="जैसे: जाति प्रमाणपत्र, छात्रवृत्ति, पुलिस भर्ती">
-    <label for="formState">राज्य</label>
-    <select id="formState">
-      <option value="">राज्य चुनें</option>
-      <option>राजस्थान</option><option>उत्तर प्रदेश</option><option>मध्य प्रदेश</option><option>हरियाणा</option><option>दिल्ली</option><option>बिहार</option><option>गुजरात</option><option>महाराष्ट्र</option><option>पंजाब</option><option>उत्तराखंड</option><option>हिमाचल प्रदेश</option><option>झारखंड</option><option>छत्तीसगढ़</option><option>पश्चिम बंगाल</option><option>ओडिशा</option><option>असम</option><option>आंध्र प्रदेश</option><option>तेलंगाना</option><option>कर्नाटक</option><option>केरल</option><option>तमिलनाडु</option><option>गोवा</option><option>सिक्किम</option><option>अरुणाचल प्रदेश</option><option>नागालैंड</option><option>मणिपुर</option><option>मिजोरम</option><option>त्रिपुरा</option><option>मेघालय</option><option>जम्मू और कश्मीर</option><option>लद्दाख</option><option>चंडीगढ़</option><option>पुडुचेरी</option><option>अंडमान और निकोबार</option><option>दादरा और नगर हवेली तथा दमन और दीव</option><option>लक्षद्वीप</option>
-    </select>
-    <label for="formTask">किस काम में मदद चाहिए?</label>
-    <select id="formTask">
-      <option value="फॉर्म पहचानना और सही सरकारी वेबसाइट ढूँढना">फॉर्म पहचानना और सही वेबसाइट ढूँढना</option>
-      <option value="पात्रता जाँचना">पात्रता जाँचना</option>
-      <option value="जरूरी दस्तावेजों की सूची बनाना">जरूरी दस्तावेज़ जानना</option>
-      <option value="फॉर्म के हर फील्ड को समझकर भरने में मदद">फॉर्म के हर हिस्से को समझकर भरना</option>
-      <option value="पूरी आवेदन प्रक्रिया समझना">पूरी आवेदन प्रक्रिया समझना</option>
-    </select>
-    <button type="button" id="startForm" class="form-start-button">फॉर्म सहायता शुरू करें <span>→</span></button>
-    <div class="document-tool">
-      <div class="document-tool-title">दस्तावेज़ पढ़ें (फोन पर ही)</div>
-      <p>फोटो या PDF चुनें। OCR इसी ब्राउज़र में चलेगा; फाइल BHARAT AI सर्वर पर अपलोड नहीं होगी।</p>
-      <input id="formDocs" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple>
-      <button type="button" id="runOcr" class="document-button">दस्तावेज़ पढ़ें</button>
-      <div id="ocrStatus" class="ocr-status" role="status">एक बार में अधिकतम 5 फाइलें, हर फाइल 8 MB तक। PDF के पहले 10 पेज पढ़े जाएँगे।</div>
-      <textarea id="ocrText" class="ocr-result" rows="6" placeholder="यहाँ OCR से निकला टेक्स्ट दिखेगा…" readonly></textarea>
-      <button type="button" id="copyOcr" class="document-copy" disabled>संवेदनशील नंबर हटाकर टेक्स्ट कॉपी करें</button>
-      <div class="ocr-privacy">ध्यान दें: OCR की भाषा फ़ाइलें पहली बार इंटरनेट से डाउनलोड होंगी। कॉपी करने से पहले नाम, जन्मतिथि, पता और अन्य निजी जानकारी भी खुद हटाएँ। OCR गलती कर सकता है; मूल दस्तावेज़ से मिलान ज़रूरी है।</div>
-    </div>
 
-    <section class="portal-reader" id="portalReader" aria-labelledby="portalReaderTitle">
-      <div class="portal-reader-kicker">अगला चरण · PORTAL READER</div>
-      <h2 id="portalReaderTitle">सरकारी वेबसाइट का फॉर्म समझें</h2>
-      <p>पहले आधिकारिक पोर्टल खोलें। वहाँ खाली फॉर्म के labels/text कॉपी करके नीचे डालें। BHARAT AI संभावित fields की सूची इसी फोन पर बनाएगा।</p>
-      <label for="portalUrl">आधिकारिक वेबसाइट का HTTPS लिंक</label>
-      <input id="portalUrl" type="url" inputmode="url" placeholder="https://…gov.in या https://…nic.in">
-      <button type="button" id="openPortal" class="document-button">सरकारी पोर्टल खोलें ↗</button>
-      <div id="portalStatus" class="portal-status" role="status">सुरक्षा के लिए अभी केवल HTTPS वाले .gov.in और .nic.in डोमेन खुलेंगे।</div>
-      <label for="portalPageText">खाली फॉर्म के labels / पेज का टेक्स्ट</label>
-      <textarea id="portalPageText" rows="5" maxlength="12000" placeholder="उदाहरण: Applicant Name:&#10;Date of Birth:&#10;Category:&#10;District:"></textarea>
-      <button type="button" id="mapPortalFields" class="document-button">फॉर्म के fields पहचानें</button>
-      <div id="portalFieldMap" class="portal-field-map" aria-live="polite">पहचाने गए fields यहाँ दिखेंगे।</div>
-      <button type="button" id="sendPortalMap" class="document-copy" disabled>जाँची हुई field-list चैट में डालें</button>
-      <p class="portal-privacy">सिर्फ खाली फॉर्म का टेक्स्ट डालें। भरा हुआ आवेदन, नाम, जन्मतिथि, पता, मोबाइल, पहचान नंबर, OTP या कोई निजी value न डालें। यह सुविधा fields पहचानने में मदद करती है; वेबसाइट को अपने-आप नहीं पढ़ती और न ही फॉर्म भरती है।</p>
-    </section>
-    <div class="form-safety">अभी यह संस्करण टेक्स्ट के जरिए मार्गदर्शन देता है। Aadhaar/PAN नंबर, OTP, पासवर्ड या बैंक जानकारी यहाँ न लिखें।</div>
-    <div class="form-shortcuts">
-      <button type="button" data-form-prompt="मुझे सरकारी भर्ती का आवेदन भरना है। पहले सही आधिकारिक नोटिफिकेशन और पात्रता जाँचो।">सरकारी भर्ती</button>
-      <button type="button" data-form-prompt="मुझे जाति / आय / मूल निवास प्रमाणपत्र के लिए आवेदन करना है।">प्रमाणपत्र</button>
-      <button type="button" data-form-prompt="मुझे छात्रवृत्ति का फॉर्म भरना है।">छात्रवृत्ति</button>
-      <button type="button" data-form-prompt="मुझे किसान योजना का आवेदन करना है।">किसान योजना</button>
-    </div>
-  </section>
 </main>
 <form id="form" class="composer">
   <textarea id="message" rows="1" maxlength="4000" placeholder="कुछ भी पूछें — ज़रूरत पड़ने पर BHARAT AI वेब पर खोजे..." required aria-label="अपना संदेश लिखें"></textarea>
