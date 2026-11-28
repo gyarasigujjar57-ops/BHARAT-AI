@@ -23,11 +23,6 @@
   <div class="utility-head"><strong id="utilityTitle">BHARAT AI</strong><button id="utilityClose" type="button" aria-label="बंद करें">×</button></div>
   <div id="utilityContent" class="utility-content"></div>
 </section>
-<nav class="modebar" aria-label="काम चुनें">
-  <button type="button" class="mode-tab active" data-mode="assistant" aria-pressed="true">BHARAT AI Assistant</button>
-  <button type="button" class="mode-tab" data-mode="form" aria-pressed="false">BHARAT FORM AI</button>
-</nav>
-<div id="modeHint" class="mode-hint">सामान्य सवाल, पढ़ाई, टेक्नोलॉजी और जानकारी के लिए</div>
 <main id="chat" aria-live="polite">
   <section class="welcome" id="welcome">
     <div class="welcome-icon">भा</div>
@@ -42,9 +37,8 @@
 
 </main>
 <form id="form" class="composer">
-  <textarea id="message" rows="1" maxlength="4000" placeholder="कुछ भी पूछें — ज़रूरत पड़ने पर BHARAT AI वेब पर खोजे..." required aria-label="अपना संदेश लिखें"></textarea>
+  <textarea id="message" rows="1" maxlength="4000" placeholder="यहाँ अपना सवाल लिखें..." required aria-label="अपना संदेश लिखें"></textarea>
   <button id="send" type="submit" aria-label="भेजें">↑</button>
-  <div class="disclaimer">इस MVP में चैट अभी पेज खुला रहने तक रहती है; refresh पर मिट जाती है। Aadhaar/PAN नंबर, OTP, पासवर्ड या बैंक जानकारी न भेजें।</div>
 </form>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
