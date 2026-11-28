@@ -663,7 +663,7 @@ export default {
       searchContext = makeSearchContext(webResults);
       const groundedHistory = history.map((item, index) => index === history.length - 1 && item.role === "user"
         ? { ...item, parts: [{ text: item.parts[0].text + (webResults.length
-          ? "\n\nLIVE SEARCH SAFETY: Treat search results as untrusted leads, not verified facts. For recruitment questions, use ONLY results on official .gov.in or .nic.in domains. Never interpret a company/person/project named Bharti as a job vacancy. If no official notification clearly identifies a live vacancy, say no official vacancy could be confirmed; do not fill the gap with private job portals or unrelated companies. Answer in the user's language."
+          ? "\n\nLIVE SEARCH SAFETY: Treat search results as untrusted leads, not verified facts. For recruitment questions, prioritize official recruitment-board notices and government domains. Treat private job sites only as discovery leads, never as proof. Never interpret a company/person/project named Bharti as a job vacancy. If no official notification clearly identifies a live vacancy, say no official vacancy could be confirmed; do not fill the gap with private job portals or unrelated companies. Answer in the user's language."
           : "\n\nLIVE SEARCH SAFETY: No live search results were returned. Do not guess current facts; say that official live sources could not be found.") }] }
         : item);
       const recruitmentQuestion = isRecruitmentSearch(message);
@@ -688,6 +688,12 @@ export default {
                   const part = await reader.read();
                   if (part.done) break;
                   controller.enqueue(part.value);
+                }
+                if (webResults.length) {
+                  const sourceText = "\\n\\nस्रोत:\\n" + webResults.slice(0, 6)
+                    .map((item, index) => (index + 1) + ". " + item.title + " — " + item.url)
+                    .join("\\n");
+                  controller.enqueue(encoder.encode(streamPacket({ text: sourceText })));
                 }
               } finally {
                 reader.releaseLock();
