@@ -450,7 +450,11 @@ export default {
       return json({ error: "संदेश का डेटा सही नहीं है। दोबारा भेजें।" }, 400);
     }
 
-    const message = typeof body.message === "string" ? body.message.trim().slice(0, 4000) : "";
+    let message = typeof body.message === "string" ? body.message.trim().slice(0, 4000) : "";
+    const requestMode = body.mode === "form" ? "form" : "assistant";
+    if (requestMode === "form" && !message.startsWith("BHARAT FORM AI MODE:")) {
+      message = "BHARAT FORM AI MODE: " + message;
+    }
     const clockReply = getIndiaClockReply(message);
     if (clockReply) {
       return url.pathname === "/api/chat/stream" ? clockStream(clockReply) : json({ reply: clockReply, model: "India local clock" });
@@ -481,21 +485,23 @@ export default {
     let googleSearchError = "";
     let parsed = { reply: "", sourceCount: 0 };
 
-    // Give Gemini the native Google Search tool for every question.
-    // The model decides whether current web evidence is actually needed.
-    try {
-      liveSearch = await callGeminiInteractionsSearch(env.GEMINI_API_KEY, history);
-      if (liveSearch.ok) {
-        livePayload = await liveSearch.json();
-        parsed = extractInteractionReply(livePayload);
-      } else {
-        googleSearchError = await readGeminiError(liveSearch);
+    // Use Google Search only for requests that need current/live facts.
+    // Ordinary chat goes straight to the streaming model to avoid unnecessary delay.
+    if (freshQuestion) {
+      try {
+        liveSearch = await callGeminiInteractionsSearch(env.GEMINI_API_KEY, history);
+        if (liveSearch.ok) {
+          livePayload = await liveSearch.json();
+          parsed = extractInteractionReply(livePayload);
+        } else {
+          googleSearchError = await readGeminiError(liveSearch);
+        }
+      } catch (error) {
+        googleSearchError = String(error?.message || error);
       }
-    } catch (error) {
-      googleSearchError = String(error?.message || error);
     }
 
-    if (parsed.reply && (!freshQuestion || parsed.sourceCount > 0)) {
+    if (freshQuestion && parsed.reply && parsed.sourceCount > 0) {
       const activeModel = parsed.sourceCount > 0 ? PRIMARY_MODEL + " + Google Search" : PRIMARY_MODEL;
       if (url.pathname === "/api/chat/stream") return clockStream(parsed.reply);
       return json({
