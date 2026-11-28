@@ -47,5 +47,5 @@ This prototype is not yet production-ready. Authentication, per-user authorizati
 ## Safe portal reader prototype
 - Opens only HTTPS links whose host is under `.gov.in` or `.nic.in` (including the root domains).
 - Does not fetch arbitrary user URLs through the Worker. This avoids creating an unsafe server-side URL proxy.
-- User manually copies labels from a blank official form; the browser locally maps likely field labels and can place the label-only list into the chat composer for review.
+- User manually copies text from a blank official form; the browser maps it to a fixed set of generic field categories locally. Raw pasted labels/values are not forwarded; only generic categories can be placed into the chat composer after a separate tap.
 - No personal values are retained by the mapper, no autofill occurs, and the user must verify every field against the official portal.
