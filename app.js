@@ -492,7 +492,7 @@ document.querySelector("#sendPortalMap")?.addEventListener("click", () => {
   input.dispatchEvent(new Event("input", { bubbles: true }));
   input.focus();
 });
-\ninput.addEventListener("input", () => {
+input.addEventListener("input", () => {
   input.style.height = "46px";
   input.style.height = Math.min(input.scrollHeight, 130) + "px";
 });
