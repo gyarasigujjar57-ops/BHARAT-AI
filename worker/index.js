@@ -134,10 +134,9 @@ function makeSearchContext(results) {
 }
 function appendSearchSources(reply, results) {
   if (!results.length) return reply;
-  return reply + "\n\n**वेब पर मिले स्रोत (स्वतंत्र रूप से जाँचें):**\n" +
-    results.slice(0, 6).map((item, index) =>
-      (index + 1) + ". " + item.title + " — " + item.url +
-      (item.published ? " (" + item.published + ")" : "")
+  return reply + "\n\n**स्रोत:**\n" +
+    results.slice(0, 4).map((item, index) =>
+      (index + 1) + ". [" + item.title.replace(/[\[\]]/g, "").slice(0, 110) + "](" + item.url + ")"
     ).join("\n");
 }
 
