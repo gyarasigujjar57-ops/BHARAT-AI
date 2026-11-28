@@ -250,7 +250,7 @@ async function ask(question) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 90000);
   try {
-    const response = await fetch(API_BASE_URL + "/api/chat/stream", {
+    const response = await fetch(API_BASE_URL + "/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -265,11 +265,13 @@ async function ask(question) {
       try { err = await response.json(); } catch (_) {}
       throw new Error(err.error || err.message || ("सर्वर त्रुटि " + response.status));
     }
+    const data = await response.json();
+    const liveText = String(data.reply || "").trim();
+    if (!liveText) throw new Error("AI से खाली जवाब मिला।");
     delete reply.dataset.pending;
     reply.classList.remove("thinking");
     reply.removeAttribute("aria-label");
-    const liveText = await readLiveReply(response, reply);
-    if (!liveText.trim()) throw new Error("AI से खाली जवाब मिला।");
+    renderMarkdown(reply, liveText);
   } catch (error) {
     reply.dataset.failed = "true";
     reply.classList.remove("thinking");
