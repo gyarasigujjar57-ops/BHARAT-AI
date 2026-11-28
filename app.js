@@ -529,3 +529,97 @@ input.addEventListener("keydown", event => {
 });
 connection?.addEventListener("click", () => checkAIConnection(true));
 checkAIConnection();
+
+
+// More menu: drafts are stored locally on this device; chat history is not persisted.
+const menuToggle = document.querySelector("#menuToggle");
+const moreMenu = document.querySelector("#moreMenu");
+const utilityPanel = document.querySelector("#utilityPanel");
+const utilityTitle = document.querySelector("#utilityTitle");
+const utilityContent = document.querySelector("#utilityContent");
+const closeUtility = () => { utilityPanel.hidden = true; };
+const closeMenu = () => { moreMenu.hidden = true; menuToggle?.setAttribute("aria-expanded","false"); };
+menuToggle?.addEventListener("click", () => {
+  const opening = moreMenu.hidden;
+  moreMenu.hidden = !opening;
+  menuToggle.setAttribute("aria-expanded", String(opening));
+  if (opening) closeUtility();
+});
+document.querySelector("#utilityClose")?.addEventListener("click", closeUtility);
+document.addEventListener("click", event => {
+  if (!event.target.closest("#moreMenu") && !event.target.closest("#menuToggle")) closeMenu();
+});
+function showUtility(title, contentNode) {
+  utilityTitle.textContent = title;
+  utilityContent.replaceChildren(contentNode);
+  utilityPanel.hidden = false;
+  closeMenu();
+}
+function getDrafts() {
+  try { const value = JSON.parse(localStorage.getItem("bharat_ai_drafts") || "[]"); return Array.isArray(value) ? value : []; }
+  catch (_) { return []; }
+}
+function saveCurrentDraft() {
+  const text = input.value.trim();
+  if (!text) {
+    const note=document.createElement("p"); note.textContent="पहले नीचे मैसेज बॉक्स में अपना अधूरा संदेश लिखें, फिर Draft सेव करें।";
+    showUtility("Drafts",note); return;
+  }
+  const drafts=getDrafts();
+  drafts.unshift({text, savedAt:new Date().toISOString()});
+  try {
+    localStorage.setItem("bharat_ai_drafts",JSON.stringify(drafts.slice(0,10)));
+    input.value=""; input.style.height="46px";
+    const note=document.createElement("p"); note.textContent="आपका Draft इसी फोन में सेव हो गया है। इसे Drafts से दोबारा खोल सकते हैं।";
+    showUtility("Draft सेव हो गया",note);
+  } catch (_) {
+    const note=document.createElement("p"); note.textContent="फोन में जगह उपलब्ध नहीं है, Draft सेव नहीं हुआ।";
+    showUtility("Draft सेव नहीं हुआ",note);
+  }
+}
+function openDrafts() {
+  const drafts=getDrafts();
+  const box=document.createElement("div");
+  if (!drafts.length) { const p=document.createElement("p"); p.textContent="अभी कोई Draft सेव नहीं है।"; box.append(p); }
+  drafts.forEach((draft,index)=>{
+    const button=document.createElement("button");
+    const date=new Date(draft.savedAt);
+    button.textContent=(draft.text.slice(0,85) || "खाली Draft") + (draft.text.length>85?"…":"") + " · " + date.toLocaleDateString("hi-IN");
+    button.addEventListener("click",()=>{
+      input.value=draft.text; input.dispatchEvent(new Event("input")); input.focus();
+      showUtility("Draft खुल गया",Object.assign(document.createElement("p"),{textContent:"Draft मैसेज बॉक्स में वापस रख दिया गया है। भेजने से पहले जाँच लें।"}));
+    });
+    box.append(button);
+    const remove=document.createElement("button"); remove.textContent="यह Draft हटाएँ";
+    remove.addEventListener("click",()=>{ const all=getDrafts(); all.splice(index,1); localStorage.setItem("bharat_ai_drafts",JSON.stringify(all)); openDrafts(); });
+    box.append(remove);
+  });
+  showUtility("आपके Drafts",box);
+}
+function openSettings() {
+  const box=document.createElement("div");
+  const p=document.createElement("p"); p.textContent="BHARAT AI अभी सफेद और साफ़ थीम में चलता है। इस शुरुआती संस्करण में चैट हिस्ट्री सर्वर पर सेव नहीं होती।";
+  const label=document.createElement("label"); label.textContent="भाषा";
+  const select=document.createElement("select");
+  [["hi","हिन्दी"],["en","English"],["hinglish","Hinglish"]].forEach(([v,t])=>{const o=document.createElement("option");o.value=v;o.textContent=t;select.append(o);});
+  select.value=localStorage.getItem("bharat_ai_language")||"hi";
+  select.addEventListener("change",()=>localStorage.setItem("bharat_ai_language",select.value));
+  label.append(select); box.append(p,label);
+  const privacy=document.createElement("p"); privacy.className="muted"; privacy.textContent="सुरक्षा: Aadhaar/PAN नंबर, OTP, पासवर्ड, बैंक विवरण या UPI PIN चैट में न भेजें। OTP, CAPTCHA, भुगतान और अंतिम Submit आप खुद करें।";
+  box.append(privacy); showUtility("Settings",box);
+}
+function openHelp() {
+  const box=document.createElement("div");
+  const p=document.createElement("p"); p.textContent="BHARAT AI सामान्य सवालों में मदद करता है। BHARAT FORM AI सरकारी/सेवा फॉर्म की जानकारी और चरण समझाने के लिए है। सरकारी भर्ती की तारीख, फीस और पात्रता के लिए आधिकारिक नोटिफिकेशन की पुष्टि जरूरी है।";
+  const p2=document.createElement("p"); p2.textContent="यदि लाइव स्रोत उपलब्ध न हों, तो ऐप को साफ़ बताना चाहिए कि जानकारी सत्यापित नहीं हुई है—अनुमान को पक्का तथ्य न मानें।";
+  box.append(p,p2); showUtility("Help और Privacy",box);
+}
+document.querySelectorAll("[data-menu-action]").forEach(button=>button.addEventListener("click",()=>{
+  const action=button.dataset.menuAction;
+  closeMenu();
+  if(action==="new") document.querySelector("#reset")?.click();
+  if(action==="save") saveCurrentDraft();
+  if(action==="drafts") openDrafts();
+  if(action==="settings") openSettings();
+  if(action==="help") openHelp();
+}));
