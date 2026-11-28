@@ -517,11 +517,34 @@ export default {
       });
     }
 
-    // Never silently replace a failed Google Search with another search provider
-    // or an ungrounded model answer for a time-sensitive question.
+    // If live search fails, still provide useful general guidance without inventing current facts.
+    // The answer is explicitly marked unverified and must direct the user to the official notice.
     if (freshQuestion) {
+      const safeHistory = history.map((item, index) => index === history.length - 1 && item.role === "user"
+        ? { ...item, parts: [{ text: item.parts[0].text + "\n\nLIVE-FACT SAFETY: Google Search returned no verified sources. Do not guess or state current dates, vacancies, fees, eligibility or deadlines as facts. Give only general guidance, say clearly that the latest details could not be verified right now, and explain how to check the official department notification/website. If useful, ask the user for the exact recruitment or scheme name." }] }
+        : item);
+      const safeResult = await generateWithFallback(env.GEMINI_API_KEY, safeHistory, 1200, false, "");
+      let safeReply = "";
+      if (safeResult.response?.ok) {
+        try { safeReply = extractReply(await safeResult.response.json()); } catch (_) {}
+      }
+      if (!safeReply) safeReply = await generateCloudflareFallback(env, safeHistory, "");
+      if (safeReply) {
+        const warning = "लाइव आधिकारिक स्रोत अभी नहीं मिल पाए, इसलिए नीचे दी गई सामान्य जानकारी की तारीख/भर्ती स्थिति सत्यापित नहीं है। कोई तारीख या vacancy पक्की मानने से पहले आधिकारिक नोटिफिकेशन देखें।\n\n";
+        return json({
+          reply: warning + safeReply,
+          model: safeResult.model || "AI general guidance (live search unavailable)",
+          liveSearchUnavailable: true,
+          searchDiagnostics: {
+            searchProvider: "Google Search via Gemini Interactions",
+            googleHttpStatus: liveSearch?.status || 0,
+            googleSourceCount: parsed.sourceCount,
+            googleError: googleSearchError ? googleSearchError.slice(0, 220) : ""
+          }
+        });
+      }
       return json({
-        error: "Google Search से इस ताज़ा सवाल के लिए सत्यापित स्रोत नहीं मिले। अभी सही लाइव जवाब देना संभव नहीं है; थोड़ी देर बाद फिर कोशिश करें।",
+        error: "लाइव आधिकारिक स्रोत नहीं मिले और AI जवाब भी तैयार नहीं हो पाया। अभी भर्ती की तारीख का अनुमान नहीं दूँगा। थोड़ी देर बाद फिर कोशिश करें या विभाग की आधिकारिक वेबसाइट देखें।",
         liveSearchUnavailable: true,
         searchDiagnostics: {
           searchProvider: "Google Search via Gemini Interactions",
