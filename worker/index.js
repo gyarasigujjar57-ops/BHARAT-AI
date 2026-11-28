@@ -551,7 +551,8 @@ export default {
     if (freshQuestion) {
       const searched = await searchFreeWeb(message);
       webResults = searched.results;
-      searchProvider = searched.provider;\n      searchError = searched.error || "";
+      searchProvider = searched.provider;
+      searchError = searched.error || "";
       searchContext = makeSearchContext(webResults);
 
       const groundedHistory = history.map((item, index) => index === history.length - 1 && item.role === "user"
