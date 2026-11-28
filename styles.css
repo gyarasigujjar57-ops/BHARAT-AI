@@ -122,3 +122,15 @@
 .composer textarea{min-width:0;flex:1}
 .composer>button{flex:0 0 44px}
 @media(max-width:480px){.welcome{margin-top:3vh}.welcome-icon{margin-bottom:13px}.welcome p{margin-bottom:15px}}
+
+/* Clean ChatGPT-like answer typography; remove decorative animation. */
+.bot .bubble{background:#fff;border:0;border-radius:0;padding:2px 0;box-shadow:none;backdrop-filter:none;color:#202124;font-size:16px;line-height:1.75;white-space:normal}
+.bot .bubble h1{font-size:1.55em;line-height:1.3;font-weight:700;margin:22px 0 12px;color:#202124}
+.bot .bubble h2{font-size:1.28em;line-height:1.35;font-weight:700;margin:19px 0 9px;color:#202124}
+.bot .bubble h3{font-size:1.08em;line-height:1.45;font-weight:700;margin:15px 0 7px;color:#202124}
+.bot .bubble h4{font-size:1em;line-height:1.45;font-weight:700;margin:12px 0 6px;color:#202124}
+.bot .bubble p{margin:0 0 12px}.bot .bubble ul,.bot .bubble ol{margin:7px 0 14px;padding-left:25px}
+.bot .bubble li{padding-left:3px;margin:5px 0}.bot .bubble strong{font-weight:700;color:#202124}
+.bot .bubble a{color:#1769aa;text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere}
+.bot .bubble.thinking{display:block;min-width:0;min-height:0;width:auto;padding:2px 0;background:#fff;border:0;box-shadow:none;backdrop-filter:none;color:#6b7280;font-size:14px}
+.snake-cursor,.snake-loader,.thinking-dots{display:none!important}.welcome-icon{display:none}
