@@ -119,9 +119,18 @@ function renderMarkdown(element, markdown) {
 
 // Read the real token stream from the backend; no simulated typing.
 async function readLiveReply(response, element) {
+  let activity = element.querySelector(".live-activity");
   const streamText = document.createElement("span");
   streamText.className = "stream-text";
-  element.replaceChildren(streamText);
+  if (!activity) {
+    activity = document.createElement("div");
+    activity.className = "live-activity";
+    activity.textContent = "AI जवाब लिख रहा है…";
+    element.replaceChildren(activity);
+  } else {
+    activity.textContent = "AI जवाब लिख रहा है…";
+  }
+  element.append(streamText);
 
   if (!response.body?.getReader) {
     const data = await response.json();
@@ -142,7 +151,9 @@ async function readLiveReply(response, element) {
     let packet;
     try { packet = JSON.parse(data); } catch (_) { return; }
     if (packet.error) throw new Error(packet.error);
+    if (packet.status && activity) activity.textContent = packet.status;
     if (packet.text) {
+      if (activity) activity.textContent = "जवाब लिख रहा है…";
       fullText += packet.text;
       streamText.textContent = fullText;
       chat.scrollTop = chat.scrollHeight;
@@ -208,6 +219,18 @@ async function checkAIConnection(testAI = false) {
     connection.disabled = false;
   }
 }
+function likelyNeedsLiveSearch(message) {
+  const q = String(message || "").toLowerCase();
+  const terms = [
+    "latest","today","current","right now","live","google","search online","internet pe","google pe","web pe",
+    "news","weather","forecast","price","cost","rate","recruitment","vacancy","vacancies","job","jobs",
+    "bharti","naukri","sarkari","result","notification","deadline","last date","admission open",
+    "भर्ती","नौकरी","सरकारी नौकरी","सरकारी भर्ती","नई भर्ती","नोटिफिकेशन","अंतिम तिथि","आखिरी तारीख",
+    "रिजल्ट","आज","अभी","ताज़ा खबर","ताजा खबर","मौसम","कीमत","दाम","भाव","कब तक"
+  ];
+  return terms.some(term => q.includes(term));
+}
+
 async function ask(question) {
   hideWelcome();
   const history = getHistory();
@@ -215,7 +238,12 @@ async function ask(question) {
   const reply = addMessage("", "bot");
   reply.classList.add("thinking");
   reply.setAttribute("aria-label", "BHARAT AI जवाब तैयार कर रहा है");
-  reply.textContent = "जवाब तैयार कर रहा हूँ…";
+  const activity = document.createElement("div");
+  activity.className = "live-activity";
+  activity.textContent = likelyNeedsLiveSearch(question) ? "वेब पर खोज रहा है…" : "AI जवाब तैयार कर रहा है…";
+  const replyText = document.createElement("div");
+  replyText.className = "live-answer";
+  reply.replaceChildren(activity, replyText);
   reply.dataset.pending = "true";
   send.disabled = true;
   input.disabled = true;
