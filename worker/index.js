@@ -327,6 +327,7 @@ async function generateCloudflareFallback(env, history, searchContext = "") {
 
 export default {
   async fetch(request, env) {
+    try {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: cors });
@@ -540,5 +541,11 @@ export default {
     }
 
     return json({ reply, model: activeModel });
+    } catch (error) {
+      return json({
+        error: "BHARAT AI server error. कृपया थोड़ी देर बाद फिर कोशिश करें।",
+        diagnostic: String(error?.message || error).slice(0, 180)
+      }, 500);
+    }
   }
 };
